@@ -2,8 +2,8 @@ import {Module} from '@nestjs/common';
 import {AppController} from './app.controller';
 import {AppService} from './app.service';
 import {TypeOrmModule} from "@nestjs/typeorm";
-import {DataSource} from "typeorm";
 import {TodosModule} from "./todos/todos.module";
+import {ConnectionModule} from './connection/connection.module';
 
 @Module({
     imports: [
@@ -16,11 +16,11 @@ import {TodosModule} from "./todos/todos.module";
             database: 'crud_nest',
             entities: ["dist/**/*.entity{.ts,.js}"],
             synchronize: true,
-        }),TodosModule],
+        }), TodosModule, ConnectionModule],
     controllers: [AppController],
     providers: [AppService],
 })
 export class AppModule {
-    constructor(private dataSource: DataSource) {
+    constructor() {
     }
 }
