@@ -9,7 +9,9 @@ export class TodosService {
     constructor(
         @InjectRepository(Todo)
         private todoRepository: Repository<Todo>,
-    ) {}
+    ) {
+    }
+
     todos = [{
         id: 1,
         title: 'todo app',
@@ -33,14 +35,17 @@ export class TodosService {
     }
 
     async findOneBy(id: number): Promise<Todo | null> {
-        return await this.todoRepository.findOneBy({ id });
+        return await this.todoRepository.findOneBy({id});
     }
+
     async delete(id: number) {
         await this.todoRepository.delete(id);
         console.log('1')
     }
 
-    async create(todo:TodoDTO){
+    async create(todo: TodoDTO) {
         await this.todoRepository.save(todo)
     }
+
+
 }
