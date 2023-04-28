@@ -32,16 +32,12 @@ export class TodosService {
         return this.todoRepository.find();
     }
 
-    findOneBy(id: number): Promise<Todo | null> {
-        return this.todoRepository.findOneBy({ id });
+    async findOneBy(id: number): Promise<Todo | null> {
+        return await this.todoRepository.findOneBy({ id });
     }
-
-    async remove(id: number): Promise<void> {
-        await this.todoRepository.delete(id);
-    }
-
     async delete(id: number) {
         await this.todoRepository.delete(id);
+        console.log('1')
     }
 
     async create(todo:TodoDTO){
