@@ -9,7 +9,7 @@ export class ConnectionController {
 
   @Post()
   async signup(@Body() user: UserDTO) {
-    await this.connectionService.signup(user).catch((reason) => reason);
+    await this.connectionService.signup(user).catch((reason) => console.log(reason));
     return 'ok';
   }
   @Post('/login')
