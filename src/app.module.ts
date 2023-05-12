@@ -12,7 +12,7 @@ import {ConnectionModule} from './connection/connection.module';
             host: 'localhost',
             port: 3306,
             username: 'root',
-            password: '',
+            password: 'Yxrhyrup1990!!',
             database: 'crud_nest',
             entities: ["dist/**/*.entity{.ts,.js}"],
             synchronize: true,
