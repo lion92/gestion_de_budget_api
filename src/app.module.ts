@@ -14,7 +14,7 @@ import { ConnectionModule } from './connection/connection.module';
       username: 'root',
       password: 'Yxrhyrup1990!!',
       database: 'crud_nest',
-      entities: ['dist/**/*.entity{.ts,.js}'],
+      entities: [__dirname + '/../**/*.entity.{js,ts}'],
       synchronize: true,
     }),
     TodosModule,
