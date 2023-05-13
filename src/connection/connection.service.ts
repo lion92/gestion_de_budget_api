@@ -19,10 +19,10 @@ export class ConnectionService {
 
   async signup(user: UserDTO) {
     const userCreate = user;
-    const saltOrRounds = 10;
-    const password = userCreate.password;
-    userCreate.password = await bcrypt.hash(password, saltOrRounds);
-    await this.userRepository.save(userCreate);
+
+    await this.userRepository
+      .save(userCreate)
+      .catch((reason) => console.log(reason));
   }
 
   async login(
@@ -33,8 +33,7 @@ export class ConnectionService {
     if (!userFind) {
       throw new NotFoundException('User Not found');
     } else {
-      const match = await bcrypt.compare(password, userFind.password);
-      if (!match) {
+      if (userFind.password!==user.password) {
         throw new UnauthorizedException('illegal');
       } else {
         return {

@@ -7,9 +7,11 @@ import { LoginDTO } from '../dto/LoginDTO';
 export class ConnectionController {
   constructor(private readonly connectionService: ConnectionService) {}
 
-  @Post()
+  @Post('signup')
   async signup(@Body() user: UserDTO) {
-    await this.connectionService.signup(user).catch((reason) => console.log(reason));
+    await this.connectionService
+      .signup(user)
+      .catch((reason) => console.log(reason));
     return 'ok';
   }
   @Post('/login')
