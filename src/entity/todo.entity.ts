@@ -1,5 +1,6 @@
 
-import { Entity, Column, PrimaryGeneratedColumn } from 'typeorm';
+import {Entity, Column, PrimaryGeneratedColumn, ManyToOne} from 'typeorm';
+import {User} from "./User.entity";
 
 @Entity()
 export class Todo {
@@ -11,5 +12,7 @@ export class Todo {
 
     @Column()
     description: string;
+
+    @ManyToOne(type => User, user => user.id) user: User;
 
 }

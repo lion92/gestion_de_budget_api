@@ -47,5 +47,8 @@ export class TodosService {
         await this.todoRepository.save(todo)
     }
 
+    async update(id: number, todo: TodoDTO) {
+        await this.todoRepository.update(id, {title:todo.title,description:todo.description, user:todo.user})
+    }
 
 }
