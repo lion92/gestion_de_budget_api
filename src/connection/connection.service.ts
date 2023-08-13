@@ -3,7 +3,7 @@ import {UserDTO} from '../dto/UserDTO';
 import {InjectRepository} from '@nestjs/typeorm';
 import {Repository} from 'typeorm';
 import {User} from '../entity/User.entity';
-import {hash, compare} from "bcrypt";
+import {compare, hash} from "bcrypt";
 import {LoginDTO} from '../dto/LoginDTO';
 
 @Injectable()
@@ -17,7 +17,7 @@ export class ConnectionService {
     async signup(user: UserDTO) {
         const userCreate = user;
         let hashedPassword = await hash(user.password, 10);
-        user.password=hashedPassword;
+        user.password = hashedPassword;
         await this.userRepository
             .save(userCreate)
             .catch((reason) => console.log(reason));
@@ -31,18 +31,22 @@ export class ConnectionService {
         if (!userFind) {
             throw new NotFoundException('User Not found');
         } else {
-            let bool=await compare(user.password,userFind.password);
-                if (!bool) {
-                    throw new UnauthorizedException('illegal');
-                } else {
-                    return {
-                        id: userFind.id,
-                        email: userFind.email,
-                        nom: userFind.nom,
-                        prenom: userFind.prenom,
-                    };
-                }
+            let bool = await compare(user.password, userFind.password);
+            if (!bool) {
+                throw new UnauthorizedException('illegal');
+            } else {
+                return {
+                    id: userFind.id,
+                    email: userFind.email,
+                    nom: userFind.nom,
+                    prenom: userFind.prenom,
+                };
+            }
 
         }
+    }
+
+    async update(id: number, userDTO: UserDTO) {
+        await this.userRepository.update(id, {nom: userDTO.nom, prenom: userDTO.prenom})
     }
 }
