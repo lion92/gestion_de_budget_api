@@ -10,4 +10,4 @@ import {ActionService} from "./Action.service";
     controllers: [ActionController],
     providers: [ActionService],
 })
-export class ConnectionModule {}
+export class ActionModule {}

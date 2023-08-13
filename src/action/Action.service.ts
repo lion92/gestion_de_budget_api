@@ -1,14 +1,13 @@
 import {Injectable} from '@nestjs/common';
 import {InjectRepository} from "@nestjs/typeorm";
 import {Repository} from "typeorm";
-import {Categorie} from "../entity/Categorie.entity";
 import {ActionDTO} from "../dto/ActionDTO";
 import {Action} from "../entity/Action.entity";
 
 @Injectable()
 export class ActionService {
     constructor(
-        @InjectRepository(Categorie)
+        @InjectRepository(Action)
         private actionRepository: Repository<Action>,
     ) {
     }

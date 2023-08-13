@@ -1,5 +1,4 @@
 import {Body, Controller, Delete, Get, Param, Post, Put} from '@nestjs/common';
-import {CategorieDTO} from "../dto/CategorieDTO";
 import {ActionService} from "./Action.service";
 import {ActionDTO} from "../dto/ActionDTO";
 

@@ -1,7 +1,13 @@
 import {Column, Entity, ManyToOne, PrimaryGeneratedColumn} from 'typeorm';
 import {User} from "./User.entity";
+import {categorieModule} from "../categorie/Categorie.module";
+import {Module} from "@nestjs/common";
 import {Categorie} from "./Categorie.entity";
-import {QueryDeepPartialEntity} from "typeorm/query-builder/QueryPartialEntity";
+
+@Module({
+    imports: [ categorieModule ]
+})
+
 
 @Entity()
 export class Action {
@@ -10,6 +16,9 @@ export class Action {
 
     @Column()
     description: string;
+
+    @Column()
+    montant:number
 
     @Column({
         type: 'datetime',

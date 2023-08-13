@@ -6,6 +6,7 @@ export class ActionDTO {
     readonly description: string
     readonly dateAjout: Date
     readonly dateTransaction: Date
+    readonly montant: number
     readonly user: User
     readonly categorie: Categorie
 }
