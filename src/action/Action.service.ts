@@ -34,7 +34,8 @@ export class ActionService {
             description: actionDTO.description,
             user: actionDTO.user,
             categorie: actionDTO.categorie,
-            dateTransaction: actionDTO.dateTransaction
+            dateTransaction: actionDTO.dateTransaction,
+            montant: parseInt("" + actionDTO.montant)
         })
     }
 
