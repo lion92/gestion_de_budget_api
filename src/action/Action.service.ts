@@ -13,7 +13,7 @@ export class ActionService {
     }
 
     findAll(): Promise<Action[]> {
-        return this.actionRepository.find({relations: ['user', 'catagerorie']});
+        return this.actionRepository.find({relations: ['user', 'categorie']});
     }
 
     async findOneBy(id: number): Promise<Action | null> {
