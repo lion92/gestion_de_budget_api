@@ -29,8 +29,8 @@ export class Action {
     @Column({type: 'datetime', nullable: true,})
     dateTransaction:Date
 
-
     @ManyToOne(type => Categorie, categorie => categorie.id) categorie: Categorie;
+
     @ManyToOne(type => User, user => user.id) user: User;
 
 }

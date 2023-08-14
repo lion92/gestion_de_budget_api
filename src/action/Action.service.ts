@@ -13,11 +13,14 @@ export class ActionService {
     }
 
     findAll(): Promise<Action[]> {
-        return this.actionRepository.find();
+        return this.actionRepository.find({relations: ['user', 'catagerorie']});
     }
 
     async findOneBy(id: number): Promise<Action | null> {
-        return await this.actionRepository.findOneBy({id});
+        return await this.actionRepository.findOne({
+            where: {id: id},
+            relations: ['user'],
+        });
     }
 
     async delete(id: number) {
