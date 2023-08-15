@@ -1,6 +1,7 @@
 import {Body, Controller, Delete, Get, Param, Post, Put} from '@nestjs/common';
 import {ActionService} from "./Action.service";
 import {ActionDTO} from "../dto/ActionDTO";
+import {Action} from "../entity/Action.entity";
 
 @Controller('action')
 export class ActionController {
@@ -11,6 +12,12 @@ export class ActionController {
     async findAll(): Promise<ActionDTO[]> {
         return await this.actionService.findAll();
     }
+
+    @Get("/categorie/sum")
+    async findCategorieSum(): Promise<ActionDTO[]> {
+        return await this.actionService.findCategorieSum().then(value => value);
+    }
+
 
     @Get(':id')
     async findOne(@Param('id') id): Promise<ActionDTO | void> {
