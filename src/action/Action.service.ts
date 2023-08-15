@@ -44,7 +44,8 @@ export class ActionService {
 
     async findCategorieSum()  {
         let qb=this.actionRepository.createQueryBuilder("action")
-            qb.select("sum(montant) AS montant,categorieId")
+            qb.select("sum(montant) AS montant,categorieId, categorie.description")
+        qb.innerJoin("action.categorie","categorie")
         qb.groupBy("categorieId")
         console.log(qb.getSql())
         return qb.execute();
