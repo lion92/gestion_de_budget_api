@@ -29,7 +29,7 @@ export class CategorieService {
     }
 
     async update(id: number, categorieDTO: CategorieDTO) {
-        await this.categorieRepository.update(id, {description:categorieDTO.description,categorie:categorieDTO.categorie})
+        await this.categorieRepository.update(id, {description:categorieDTO.description,categorie:categorieDTO.categorie, color:categorieDTO.color})
     }
 
 }

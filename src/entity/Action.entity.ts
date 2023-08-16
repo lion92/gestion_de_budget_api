@@ -28,7 +28,10 @@ export class Action {
 
     @Column({type: 'datetime', nullable: true,})
     dateTransaction:Date
-
+    @ManyToOne(() => Categorie, author => Categorie, {
+        onDelete: "CASCADE",
+        onUpdate:"CASCADE"
+    })
     @ManyToOne(type => Categorie, categorie => categorie.id) categorie: Categorie;
 
     @ManyToOne(type => User, user => user.id) user: User;
