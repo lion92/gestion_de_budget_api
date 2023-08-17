@@ -42,11 +42,23 @@ export class ActionService {
         })
     }
 
-    async findCategorieSum()  {
+    async findCategorieSum(id)  {
         let qb=this.actionRepository.createQueryBuilder("action")
-            qb.select("sum(montant) AS montant,categorieId, categorie.description, color")
+            qb.select("sum(montant) AS montant,categorieId, color, categorie, action.userId, dateAjout")
+        qb.innerJoin("action.user","user")
         qb.innerJoin("action.categorie","categorie")
+        qb.where({user:id})
         qb.groupBy("categorieId")
+        console.log(qb.getSql())
+        return qb.execute();
+    }
+
+    async findByUser(id)  {
+        let qb=this.actionRepository.createQueryBuilder("action")
+        qb.select("action.id as id, montant, categorie, description, user.id as user, categorie.id as categorieId, dateAjout")
+        qb.innerJoin("action.user","user")
+        qb.innerJoin("action.categorie","categorie")
+        qb.where({user:id})
         console.log(qb.getSql())
         return qb.execute();
     }

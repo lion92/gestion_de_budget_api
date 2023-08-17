@@ -29,7 +29,16 @@ export class CategorieService {
     }
 
     async update(id: number, categorieDTO: CategorieDTO) {
-        await this.categorieRepository.update(id, {description:categorieDTO.description,categorie:categorieDTO.categorie, color:categorieDTO.color})
+        await this.categorieRepository.update(id, {categorie:categorieDTO.categorie, color:categorieDTO.color, user:categorieDTO.user})
     }
 
+
+    async findByUser(id)  {
+        let qb=this.categorieRepository.createQueryBuilder("categorie")
+        qb.select("categorie.id as id, user.id as user, categorie, color")
+        qb.innerJoin("categorie.user","user")
+        qb.where({user:id})
+        console.log(qb.getSql())
+        return qb.execute();
+    }
 }

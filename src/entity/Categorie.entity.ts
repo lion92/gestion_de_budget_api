@@ -1,4 +1,5 @@
-import {Column, Entity, PrimaryGeneratedColumn} from 'typeorm';
+import {Column, Entity, ManyToOne, PrimaryGeneratedColumn} from 'typeorm';
+import {User} from "./User.entity";
 
 @Entity()
 export class Categorie {
@@ -11,6 +12,11 @@ export class Categorie {
     @Column()
     color:string
 
-    @Column()
-    description: string;
+    @ManyToOne(() => User, author => User, {
+        onDelete: "CASCADE",
+        onUpdate:"CASCADE"
+    })
+    @ManyToOne(type => User, user => user.id) user: User;
+
+
 }

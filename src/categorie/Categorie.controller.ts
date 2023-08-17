@@ -13,6 +13,11 @@ export class CategorieController {
         return await this.connectionService.findAll();
     }
 
+    @Get("/byuser/:user")
+    async findAllByUser(@Param('user') userId): Promise<CategorieDTO[] | string> {
+        return await this.connectionService.findByUser(userId);
+    }
+
     @Get(':id')
     async findOne(@Param('id') id): Promise<CategorieDTO | void> {
         return await this.connectionService.findOneBy(id).then(value => value).catch(reason => console.log(reason));

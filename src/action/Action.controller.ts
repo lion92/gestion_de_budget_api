@@ -2,6 +2,7 @@ import {Body, Controller, Delete, Get, Param, Post, Put, Res} from '@nestjs/comm
 import {ActionService} from "./Action.service";
 import {ActionDTO} from "../dto/ActionDTO";
 import {map} from "rxjs";
+import {CategorieDTO} from "../dto/CategorieDTO";
 
 @Controller('action')
 export class ActionController {
@@ -13,9 +14,9 @@ export class ActionController {
         return await this.actionService.findAll();
     }
 
-    @Get("/categorie/sum")
-    async findCategorieSum(): Promise<ActionDTO[]> {
-        return await this.actionService.findCategorieSum().then(value => value);
+    @Get("/categorie/sum/byuser/:user")
+    async findCategorieSum(@Param("user") user): Promise<ActionDTO[]> {
+        return await this.actionService.findCategorieSum(user).then(value => value);
     }
 
     @Get("/export")
@@ -117,6 +118,10 @@ console.log(dataset)
     @Get(':id')
     async findOne(@Param('id') id): Promise<ActionDTO | void> {
         return await this.actionService.findOneBy(id).then(value => value).catch(reason => console.log(reason));
+    }
+    @Get("/byuser/:user")
+    async findAllByUser(@Param('user') userId): Promise<CategorieDTO[] | string> {
+        return await this.actionService.findByUser(userId);
     }
 
     @Delete(':id')
