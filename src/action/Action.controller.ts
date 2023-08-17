@@ -57,8 +57,7 @@ export class ActionController {
         };
 
 //Array of objects representing heading rows (very top)
-        const heading = [
-            listMontants.map(value => { return { value:value.description, style:styles.headerDark}})];
+        const heading = [];
 
 //Here you specify the export structure
         const specification = {
