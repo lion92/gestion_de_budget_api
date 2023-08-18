@@ -6,6 +6,7 @@ import {TodosModule} from './todos/todos.module';
 import {ConnectionModule} from './connection/connection.module';
 import {categorieModule} from "./categorie/Categorie.module";
 import {ActionModule} from "./action/Action.module";
+import {JwtModule} from "@nestjs/jwt";
 
 @Module({
     imports: [
@@ -18,6 +19,10 @@ import {ActionModule} from "./action/Action.module";
             database: 'crud_nest',
             entities: ['src/../**/*.entity.js'],
             synchronize: true,
+        }),
+        JwtModule.register({
+            secret: process.env.secret,
+            signOptions: {expiresIn: '1d'}
         }),
         TodosModule,
         ConnectionModule,

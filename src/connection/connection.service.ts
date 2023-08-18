@@ -5,26 +5,32 @@ import {Repository} from 'typeorm';
 import {User} from '../entity/User.entity';
 import {compare, hash} from "bcrypt";
 import {LoginDTO} from '../dto/LoginDTO';
+import {JwtService} from "@nestjs/jwt";
 
 @Injectable()
 export class ConnectionService {
     constructor(
         @InjectRepository(User)
         private userRepository: Repository<User>,
+        private jwtService: JwtService
     ) {
     }
 
-    async signup(user: UserDTO) {
+    async signup(user: UserDTO, res) {
         const userCreate = user;
         let hashedPassword = await hash(user.password, 10);
         user.password = hashedPassword;
+        const jwt = await this.jwtService.signAsync({id: user.id},{secret:"Je veux pas donner mon mot de passe"});
+
+
+        res.cookie('jwt', jwt, {httpOnly: true});
         await this.userRepository
             .save(userCreate)
             .catch((reason) => console.log(reason));
     }
 
     async login(
-        user: LoginDTO,
+        user: LoginDTO,res
     ): Promise<{ id: number; email: string; prenom: string; nom: string }> {
         const {password, email} = user;
         const userFind = await this.userRepository.findOneBy({email: email});
@@ -35,6 +41,9 @@ export class ConnectionService {
             if (!bool) {
                 throw new UnauthorizedException('illegal');
             } else {
+                const jwt = await this.jwtService.signAsync({id: userFind.id},{secret:"Je veux pas donner mon mot de passe"});
+
+                res.cookie('jwt', jwt, {httpOnly: true});
                 return {
                     id: userFind.id,
                     email: userFind.email,
