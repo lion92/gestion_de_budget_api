@@ -19,10 +19,10 @@ export class ActionController {
         return await this.actionService.findCategorieSum(user).then(value => value);
     }
 
-    @Get("/export")
-    async export(@Res() res) {
+    @Get("/export/:id")
+    async export(@Res() res, @Param("id") id) {
         const excel = require('node-excel-export');
-        let listMontants = await this.actionService.findAll();
+        let listMontants = await this.actionService.findByUser(id);
         console.log(listMontants.map(value => { return { montant:value.montant}}));
 // You can define styles as json object
         const styles = {

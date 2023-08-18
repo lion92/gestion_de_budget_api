@@ -2,6 +2,8 @@ import {Body, Controller, Delete, Get, Param, Post, Put} from '@nestjs/common';
 import {TodosService} from "./todos.service";
 import {TodosInterface} from "../interface/Todos.interface";
 import {TodoDTO} from "../dto/todoDTO";
+import {CategorieDTO} from "../dto/CategorieDTO";
+import {UserDTO} from "../dto/UserDTO";
 
 @Controller('todos')
 export class TodosController {
@@ -11,6 +13,10 @@ export class TodosController {
     @Get()
     async findAll(): Promise<TodosInterface[] | string> {
         return await this.todos.findAll();
+    }
+    @Get("/byuser/:user")
+    async findAllByUser(@Param('user') userId): Promise<TodoDTO[] | string> {
+        return await this.todos.findByUser(userId);
     }
 
     @Get(':id')

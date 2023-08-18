@@ -51,4 +51,13 @@ export class TodosService {
         await this.todoRepository.update(id, {title:todo.title,description:todo.description, user:todo.user})
     }
 
+    async findByUser(id)  {
+        let qb=this.todoRepository.createQueryBuilder("tache")
+        qb.select("tache.id as id, user.id as user, description, title, nom, prenom")
+        qb.innerJoin("tache.user","user")
+        qb.where({user:id})
+        console.log(qb.getSql())
+        return qb.execute();
+    }
+
 }
