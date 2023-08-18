@@ -20,7 +20,7 @@ export class ConnectionService {
         const userCreate = user;
         let hashedPassword = await hash(user.password, 10);
         user.password = hashedPassword;
-        const jwt = await this.jwtService.signAsync({id: user.id},{secret:"Je veux pas donner mon mot de passe"});
+        const jwt = await this.jwtService.signAsync({id: user.id}, {secret: "Je veux pas donner mon mot de passe"});
 
 
         res.cookie('jwt', jwt, {httpOnly: true});
@@ -30,8 +30,8 @@ export class ConnectionService {
     }
 
     async login(
-        user: LoginDTO,res
-    ): Promise<{ id: number; email: string; prenom: string; nom: string }> {
+        user: LoginDTO, res
+    ): Promise<{ id: number; email: string; prenom: string; nom: string, jwt:string }> {
         const {password, email} = user;
         const userFind = await this.userRepository.findOneBy({email: email});
         if (!userFind) {
@@ -41,7 +41,7 @@ export class ConnectionService {
             if (!bool) {
                 throw new UnauthorizedException('illegal');
             } else {
-                const jwt = await this.jwtService.signAsync({id: userFind.id},{secret:"Je veux pas donner mon mot de passe"});
+                const jwt = await this.jwtService.signAsync({id: userFind.id}, {secret: "Je veux pas donner mon mot de passe"});
 
                 res.cookie('jwt', jwt, {httpOnly: true});
                 return {
@@ -49,6 +49,7 @@ export class ConnectionService {
                     email: userFind.email,
                     nom: userFind.nom,
                     prenom: userFind.prenom,
+                    jwt: jwt
                 };
             }
 

@@ -1,12 +1,11 @@
-import {Body, Controller, Get, Param, Post, Put, Req, Res, UnauthorizedException} from '@nestjs/common';
+import {Body, Controller, Param, Post, Put, Res, UnauthorizedException} from '@nestjs/common';
 import {ConnectionService} from './connection.service';
 import {UserDTO} from '../dto/UserDTO';
-import {Request, Response} from 'express';
+import {Response} from 'express';
 import {JwtService} from "@nestjs/jwt";
 import {Repository} from "typeorm";
 import {User} from "../entity/User.entity";
 import {InjectRepository} from "@nestjs/typeorm";
-import {Action} from "../entity/Action.entity";
 
 @Controller('connection')
 export class ConnectionController {
@@ -26,7 +25,7 @@ export class ConnectionController {
 
     @Post('/login')
     async login(@Body() user: UserDTO, @Res({passthrough: true}) res: Response): Promise<void | { id: number; email: string; prenom: string; nom: string; }> {
-        return await this.connectionService.login(user, res).then(value => console.log(value)).catch((reason) => console.log(reason));
+        return await this.connectionService.login(user, res).then(value => value).catch((reason) => console.log(reason));
     }
 
     @Put(':id')
@@ -35,26 +34,26 @@ export class ConnectionController {
         return str;
     }
 
-    @Get('user')
-    async user(@Req() request: Request) {
+    @Post('user')
+    async user(@Body() jwt: { jwt: string }) {
         try {
-            const cookie = request.cookies['jwt'];
-
-            const data = await this.jwtService.verifyAsync(cookie, {secret: "Je veux pas donner mon mot de passe"});
-            console.log(data)
+            await console.log(jwt)
+            const data = await this.jwtService.verifyAsync(jwt.jwt, {secret: "Je veux pas donner mon mot de passe"});
+            await console.log(data)
             if (!data) {
                 throw new UnauthorizedException();
             }
-            let qb = this.userRepository.createQueryBuilder("User")
-            qb.select("id, nom, prenom")
-            qb.where({id: data.id})
-            console.log(qb.getSql())
+            let qb = await this.userRepository.createQueryBuilder("User")
+            await qb.select("id, nom, prenom")
+            await qb.where({id: data.id})
+            await console.log(qb.getSql())
 
             const user = await qb.execute();
 
-            const {password, ...result} = user;
-
-            return result;
+            const {password, ...result} = await user;
+            await console.log(user[0]);
+            await console.log("ee");
+            return {id: user[0].id, nom: user[0].nom, prenom: user[0].prenom};
         } catch (e) {
             console.log(e);
             throw new UnauthorizedException();
