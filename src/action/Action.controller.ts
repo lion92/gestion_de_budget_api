@@ -14,9 +14,9 @@ export class ActionController {
         return await this.actionService.findAll();
     }
 
-    @Get("/categorie/sum/byuser/:user")
-    async findCategorieSum(@Param("user") user): Promise<ActionDTO[]> {
-        return await this.actionService.findCategorieSum(user).then(value => value);
+    @Get("/categorie/sum/byuser/:user/:month")
+    async findCategorieSum(@Param("user") user,@Param("month")month): Promise<ActionDTO[]> {
+        return await this.actionService.findCategorieSum(user,month).then(value => value);
     }
 
     @Get("/export/:id")

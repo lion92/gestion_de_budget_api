@@ -42,12 +42,13 @@ export class ActionService {
         })
     }
 
-    async findCategorieSum(id)  {
+    async findCategorieSum(id, month)  {
+        console.log(month);
         let qb=this.actionRepository.createQueryBuilder("action")
-            qb.select("sum(montant) AS montant,categorieId, color, categorie, action.userId, dateAjout")
+            qb.select("sum(montant) AS montant,categorieId, color, categorie, action.userId, dateAjout, dateTransaction")
         qb.innerJoin("action.user","user")
         qb.innerJoin("action.categorie","categorie")
-        qb.where({user:id})
+        qb.where({user:id}).andWhere('EXTRACT(month FROM action.dateTransaction) = '+month)
         qb.groupBy("categorieId")
         console.log(qb.getSql())
         return qb.execute();
@@ -55,7 +56,7 @@ export class ActionService {
 
     async findByUser(id)  {
         let qb=this.actionRepository.createQueryBuilder("action")
-        qb.select("action.id as id, montant, categorie, description, user.id as user, categorie.id as categorieId, dateAjout")
+        qb.select("action.id as id, montant, categorie, description, user.id as user, categorie.id as categorieId, dateAjout, dateTransaction")
         qb.innerJoin("action.user","user")
         qb.innerJoin("action.categorie","categorie")
         qb.where({user:id})
