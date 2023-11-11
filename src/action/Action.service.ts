@@ -45,7 +45,7 @@ export class ActionService {
     async findCategorieSum(id, month, year)  {
         console.log(month);
         let qb=this.actionRepository.createQueryBuilder("action")
-            qb.select("sum(montant) AS montant,categorieId, color, categorie, action.userId, dateAjout, dateTransaction")
+            qb.select("sum(montant) AS montant,categorieId, color, categorie, action.userId, dateAjout, dateTransaction, categorie.budgetDebutMois as budgetDebutMois")
         qb.innerJoin("action.user","user")
         qb.innerJoin("action.categorie","categorie")
         qb.where({user:id}).andWhere('EXTRACT(month FROM action.dateTransaction) = '+month).andWhere('EXTRACT(year FROM action.dateTransaction) = '+year)
