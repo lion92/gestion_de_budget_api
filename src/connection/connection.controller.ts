@@ -29,7 +29,11 @@ export class ConnectionController {
     }
 
     @Put(':id')
-    async update(@Param('id') id, @Body() user: UserDTO): Promise<void> {
+    async update(@Param('id') id, @Body() user: UserDTO,@Body() jwt: { jwt: string }): Promise<void> {
+        const data = await this.jwtService.verifyAsync(jwt.jwt, {secret: "Je veux pas donner mon mot de passe"});
+        if (!data) {
+            throw new UnauthorizedException();
+        }
         let str = await this.connectionService.update(id, user);
         return str;
     }

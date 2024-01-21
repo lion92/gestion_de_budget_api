@@ -1,10 +1,12 @@
-import {Body, Controller, Delete, Get, Param, Post, Put} from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Post, Put, UnauthorizedException } from '@nestjs/common';
 
 import {CategorieDTO} from "../dto/CategorieDTO";
 import {CategorieService} from "./Categorie.service";
+import { JwtService } from '@nestjs/jwt';
 
 @Controller('categorie')
 export class CategorieController {
+    private jwtService: JwtService;
     constructor(private readonly connectionService: CategorieService) {
     }
 
@@ -24,18 +26,30 @@ export class CategorieController {
     }
 
     @Delete(':id')
-    async remove(@Param('id') id): Promise<string> {
+    async remove(@Param('id') id,@Body() jwt: { jwt: string }): Promise<string> {
+        const data = await this.jwtService.verifyAsync(jwt.jwt, {secret: "Je veux pas donner mon mot de passe"});
+        if (!data) {
+            throw new UnauthorizedException();
+        }
         await this.connectionService.delete(id);
         return 'ok'
     }
     @Put(':id')
-    async update(@Param('id') id, @Body() categorieDTO:CategorieDTO): Promise<string> {
+    async update(@Param('id') id, @Body() categorieDTO:CategorieDTO,@Body() jwt: { jwt: string }): Promise<string> {
+        const data = await this.jwtService.verifyAsync(jwt.jwt, {secret: "Je veux pas donner mon mot de passe"});
+        if (!data) {
+            throw new UnauthorizedException();
+        }
         await this.connectionService.update(id, categorieDTO);
         return 'ok'
     }
 
     @Post()
-    async create(@Body() categorieDTO: CategorieDTO) {
+    async create(@Body() categorieDTO: CategorieDTO,@Body() jwt: { jwt: string }) {
+        const data = await this.jwtService.verifyAsync(jwt.jwt, {secret: "Je veux pas donner mon mot de passe"});
+        if (!data) {
+            throw new UnauthorizedException();
+        }
         await this.connectionService.create(categorieDTO)
     }
 }

@@ -1,11 +1,13 @@
-import {Body, Controller, Delete, Get, Param, Post, Put, Res} from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Post, Put, Res, UnauthorizedException } from '@nestjs/common';
 import {ActionService} from "./Action.service";
 import {ActionDTO} from "../dto/ActionDTO";
 import {map} from "rxjs";
 import {CategorieDTO} from "../dto/CategorieDTO";
+import { JwtService } from '@nestjs/jwt';
 
 @Controller('action')
 export class ActionController {
+    private jwtService: JwtService;
     constructor(private readonly actionService: ActionService) {
     }
 
@@ -125,19 +127,31 @@ console.log(dataset)
     }
 
     @Delete(':id')
-    async remove(@Param('id') id): Promise<string> {
+    async remove(@Param('id') id,@Body() jwt: { jwt: string }): Promise<string> {
+        const data = await this.jwtService.verifyAsync(jwt.jwt, {secret: "Je veux pas donner mon mot de passe"});
+        if (!data) {
+            throw new UnauthorizedException();
+        }
         await this.actionService.delete(id);
         return 'ok'
     }
 
     @Put(':id')
-    async update(@Param('id') id, @Body() actinDTO: ActionDTO): Promise<string> {
+    async update(@Param('id') id, @Body() actinDTO: ActionDTO,@Body() jwt: { jwt: string }): Promise<string> {
+        const data = await this.jwtService.verifyAsync(jwt.jwt, {secret: "Je veux pas donner mon mot de passe"});
+        if (!data) {
+            throw new UnauthorizedException();
+        }
         await this.actionService.update(id, actinDTO);
         return 'ok'
     }
 
     @Post()
-    async create(@Body() actionDTO: ActionDTO) {
+    async create(@Body() actionDTO: ActionDTO,@Body() jwt: { jwt: string }) {
+        const data = await this.jwtService.verifyAsync(jwt.jwt, {secret: "Je veux pas donner mon mot de passe"});
+        if (!data) {
+            throw new UnauthorizedException();
+        }
         await this.actionService.create(actionDTO)
     }
 }
