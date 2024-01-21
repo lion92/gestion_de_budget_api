@@ -35,8 +35,8 @@ export class CategorieController {
         return 'ok'
     }
     @Put(':id')
-    async update(@Param('id') id, @Body() categorieDTO:CategorieDTO,@Body() jwt: { jwt: string }): Promise<string> {
-        const data = await this.jwtService.verifyAsync(jwt.jwt, {secret: "Je veux pas donner mon mot de passe"});
+    async update(@Param('id') id, @Body() categorieDTO:CategorieDTO): Promise<string> {
+        const data = await this.jwtService.verifyAsync(categorieDTO.jwt, {secret: "Je veux pas donner mon mot de passe"});
         if (!data) {
             throw new UnauthorizedException();
         }
@@ -45,7 +45,11 @@ export class CategorieController {
     }
 
     @Post()
-    async create(@Body() categorieDTO: CategorieDTO) {
+    async create(@Body() categorieDTO: CategorieDTO,@Body() jwt: { jwt: string }) {
+        const data = await this.jwtService.verifyAsync(jwt.jwt, {secret: "Je veux pas donner mon mot de passe"});
+        if (!data) {
+            throw new UnauthorizedException();
+        }
         await this.connectionService.create(categorieDTO)
     }
 }
