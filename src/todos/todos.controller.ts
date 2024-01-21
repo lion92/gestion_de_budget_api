@@ -13,9 +13,8 @@ export class TodosController {
     async findAll(): Promise<TodosInterface[] | string> {
         return await this.todos.findAll();
     }
-    @Get("/byuser/:user/:jwt")
+    @Get("/byuser/:user")
     async findAllByUser(@Param('user') userId): Promise<TodoDTO[] | string> {
-
         return await this.todos.findByUser(userId);
     }
 

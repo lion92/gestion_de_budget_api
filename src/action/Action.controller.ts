@@ -7,8 +7,8 @@ import { JwtService } from '@nestjs/jwt';
 
 @Controller('action')
 export class ActionController {
-    private jwtService: JwtService;
-    constructor(private readonly actionService: ActionService) {
+
+    constructor(private readonly actionService: ActionService,  private jwtService: JwtService) {
     }
 
     @Get()
@@ -137,8 +137,8 @@ console.log(dataset)
     }
 
     @Put(':id')
-    async update(@Param('id') id, @Body() actinDTO: ActionDTO,@Body() jwt: { jwt: string }): Promise<string> {
-        const data = await this.jwtService.verifyAsync(jwt.jwt, {secret: "Je veux pas donner mon mot de passe"});
+    async update(@Param('id') id, @Body() actinDTO: ActionDTO): Promise<string> {
+        const data = await this.jwtService.verifyAsync(actinDTO.jwt, {secret: "Je veux pas donner mon mot de passe"});
         if (!data) {
             throw new UnauthorizedException();
         }
@@ -147,8 +147,8 @@ console.log(dataset)
     }
 
     @Post()
-    async create(@Body() actionDTO: ActionDTO,@Body() jwt: { jwt: string }) {
-        const data = await this.jwtService.verifyAsync(jwt.jwt, {secret: "Je veux pas donner mon mot de passe"});
+    async create(@Body() actionDTO: ActionDTO) {
+        const data = await this.jwtService.verifyAsync(actionDTO.jwt, {secret: "Je veux pas donner mon mot de passe"});
         if (!data) {
             throw new UnauthorizedException();
         }

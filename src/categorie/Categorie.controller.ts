@@ -6,8 +6,8 @@ import { JwtService } from '@nestjs/jwt';
 
 @Controller('categorie')
 export class CategorieController {
-    private jwtService: JwtService;
-    constructor(private readonly connectionService: CategorieService) {
+
+    constructor(private readonly connectionService: CategorieService, private jwtService: JwtService) {
     }
 
     @Get()
@@ -45,11 +45,7 @@ export class CategorieController {
     }
 
     @Post()
-    async create(@Body() categorieDTO: CategorieDTO,@Body() jwt: { jwt: string }) {
-        const data = await this.jwtService.verifyAsync(jwt.jwt, {secret: "Je veux pas donner mon mot de passe"});
-        if (!data) {
-            throw new UnauthorizedException();
-        }
+    async create(@Body() categorieDTO: CategorieDTO) {
         await this.connectionService.create(categorieDTO)
     }
 }

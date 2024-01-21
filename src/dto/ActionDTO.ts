@@ -9,4 +9,5 @@ export class ActionDTO {
     readonly montant: number
     readonly user: User
     readonly categorie: Categorie
+    jwt?: string
 }

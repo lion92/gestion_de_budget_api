@@ -10,6 +10,7 @@ export class CategorieDTO {
     readonly month:Month
     readonly annee:number
     readonly budgetDebutMois:number
+    jwt?: string
 
 
 }
