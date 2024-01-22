@@ -1,5 +1,5 @@
-export class LoginDTO{
-   readonly email:string
-   readonly password:string
-   jwt?: string
+export class LoginDTO {
+  readonly email: string;
+  readonly password: string;
+  jwt?: string;
 }

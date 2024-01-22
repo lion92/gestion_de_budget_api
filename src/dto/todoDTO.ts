@@ -1,9 +1,9 @@
-import {User} from "../entity/User.entity";
+import { User } from '../entity/User.entity';
 
-export class TodoDTO{
-    readonly title:string
-    readonly description:string
-    readonly user:User
-    jwt?: string
+export class TodoDTO {
+  readonly title: string;
+  readonly description: string;
+  readonly user: User;
+  jwt?: string;
 
 }

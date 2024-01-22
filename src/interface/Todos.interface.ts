@@ -1,5 +1,5 @@
-export interface TodosInterface{
-    id:number,
-    title:string,
-    description:string
+export interface TodosInterface {
+  id: number,
+  title: string,
+  description: string
 }

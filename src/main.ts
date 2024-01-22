@@ -2,6 +2,7 @@ import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import * as cookieParser from 'cookie-parser';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, {
     logger: console,
@@ -19,8 +20,9 @@ async function bootstrap() {
     .addTag('cats')
     .build();
   const document = SwaggerModule.createDocument(app, config);
-  SwaggerModule.setup('api', app, document)
+  SwaggerModule.setup('api', app, document);
   await console.log('ok');
   await app.listen(3000);
 }
+
 bootstrap();

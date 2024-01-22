@@ -6,48 +6,66 @@ import { JwtService } from '@nestjs/jwt';
 
 @Controller('todos')
 export class TodosController {
-    constructor(private readonly todos: TodosService, private jwtService:JwtService) {
-    }
+  constructor(
+    private readonly todos: TodosService,
+    private jwtService: JwtService,
+  ) {
+  }
 
-    @Get()
-    async findAll(): Promise<TodosInterface[] | string> {
-        return await this.todos.findAll();
-    }
-    @Get("/byuser/:user")
-    async findAllByUser(@Param('user') userId): Promise<TodoDTO[] | string> {
-        return await this.todos.findByUser(userId);
-    }
+  @Get()
+  async findAll(): Promise<TodosInterface[] | string> {
+    return await this.todos.findAll();
+  }
 
-    @Get(':id')
-    async findOne(@Param('id') id): Promise<TodoDTO | void> {
-            return await this.todos.findOneBy(id).then(value => value).catch(reason => console.log(reason));
-    }
+  @Get('/byuser/:user')
+  async findAllByUser(@Param('user') userId): Promise<TodoDTO[] | string> {
+    return await this.todos.findByUser(userId);
+  }
 
-    @Delete(':id')
-    async remove(@Param('id') id, @Body() jwt: { jwt: string }): Promise<string> {
-        const data = await this.jwtService.verifyAsync(jwt.jwt, {secret: "Je veux pas donner mon mot de passe"});
-        if (!data) {
-            throw new UnauthorizedException();
-        }
-        await this.todos.delete(id);
-        return 'ok'
-    }
-    @Put(':id')
-    async update(@Param('id') id, @Body() todo:TodoDTO, @Body() jwt: { jwt: string }): Promise<string> {
-        const data = await this.jwtService.verifyAsync(jwt.jwt, {secret: "Je veux pas donner mon mot de passe"});
-        if (!data) {
-            throw new UnauthorizedException();
-        }
-        await this.todos.update(id, todo);
-        return 'ok'
-    }
+  @Get(':id')
+  async findOne(@Param('id') id): Promise<TodoDTO | void> {
+    return await this.todos
+      .findOneBy(id)
+      .then((value) => value)
+      .catch((reason) => console.log(reason));
+  }
 
-    @Post()
-    async create(@Body() todo: TodoDTO, @Body() jwt: { jwt: string }) {
-        const data = await this.jwtService.verifyAsync(jwt.jwt, {secret: "Je veux pas donner mon mot de passe"});
-        if (!data) {
-            throw new UnauthorizedException();
-        }
-        await this.todos.create(todo)
+  @Delete(':id')
+  async remove(@Param('id') id, @Body() jwt: { jwt: string }): Promise<string> {
+    const data = await this.jwtService.verifyAsync(jwt.jwt, {
+      secret: 'Je veux pas donner mon mot de passe',
+    });
+    if (!data) {
+      throw new UnauthorizedException();
     }
+    await this.todos.delete(id);
+    return 'ok';
+  }
+
+  @Put(':id')
+  async update(
+    @Param('id') id,
+    @Body() todo: TodoDTO,
+    @Body() jwt: { jwt: string },
+  ): Promise<string> {
+    const data = await this.jwtService.verifyAsync(jwt.jwt, {
+      secret: 'Je veux pas donner mon mot de passe',
+    });
+    if (!data) {
+      throw new UnauthorizedException();
+    }
+    await this.todos.update(id, todo);
+    return 'ok';
+  }
+
+  @Post()
+  async create(@Body() todo: TodoDTO, @Body() jwt: { jwt: string }) {
+    const data = await this.jwtService.verifyAsync(jwt.jwt, {
+      secret: 'Je veux pas donner mon mot de passe',
+    });
+    if (!data) {
+      throw new UnauthorizedException();
+    }
+    await this.todos.create(todo);
+  }
 }

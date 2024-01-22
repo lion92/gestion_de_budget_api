@@ -1,34 +1,34 @@
-import {Column, Entity, ManyToOne, PrimaryGeneratedColumn} from 'typeorm';
-import {User} from "./User.entity";
-import Month from "../dto/enumMonth/Month";
+import { Column, Entity, ManyToOne, PrimaryGeneratedColumn } from 'typeorm';
+import { User } from './User.entity';
+import Month from '../dto/enumMonth/Month';
 
 
 @Entity()
 export class Categorie {
 
-    @PrimaryGeneratedColumn()
-    id: number;
+  @PrimaryGeneratedColumn()
+  id: number;
 
-    @Column()
-    categorie: string;
+  @Column()
+  categorie: string;
 
-    @Column()
-    color:string
+  @Column()
+  color: string;
 
-    @Column()
-    budgetDebutMois:number
+  @Column()
+  budgetDebutMois: number;
 
-    @Column('text')
-    month: Month
+  @Column('text')
+  month: Month;
 
-    @Column()
-    annee:number
+  @Column()
+  annee: number;
 
-    @ManyToOne(() => User, author => User, {
-        onDelete: "CASCADE",
-        onUpdate:"CASCADE"
-    })
-    @ManyToOne(type => User, user => user.id) user: User;
+  @ManyToOne(() => User, author => User, {
+    onDelete: 'CASCADE',
+    onUpdate: 'CASCADE',
+  })
+  @ManyToOne(type => User, user => user.id) user: User;
 
 
 }
