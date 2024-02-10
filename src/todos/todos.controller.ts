@@ -91,9 +91,9 @@ export class TodosController {
   @Post('upload')
   @UseInterceptors(
     FileInterceptor('file', {
-      dest: '../../uploads',
+      dest: './uploads',
       storage: diskStorage({
-        destination: '../../uploads',
+        destination: './uploads',
         filename: (req, file, cb) => {
           cb(null, file.originalname);
         },
