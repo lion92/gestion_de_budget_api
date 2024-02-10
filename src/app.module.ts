@@ -7,9 +7,12 @@ import { ConnectionModule } from './connection/connection.module';
 import { categorieModule } from './categorie/Categorie.module';
 import { ActionModule } from './action/Action.module';
 import { JwtModule } from '@nestjs/jwt';
-
+import { MulterModule } from '@nestjs/platform-express';
 @Module({
   imports: [
+    MulterModule.register({
+      dest: '../uploads',
+    }),
     TypeOrmModule.forRoot({
       type: 'mysql',
       host: 'localhost',
@@ -28,13 +31,11 @@ import { JwtModule } from '@nestjs/jwt';
     ConnectionModule,
     categorieModule,
     ActionModule,
-
   ],
   controllers: [AppController],
   providers: [AppService],
 })
 export class AppModule {
   // eslint-disable-next-line @typescript-eslint/no-empty-function
-  constructor() {
-  }
+  constructor() {}
 }

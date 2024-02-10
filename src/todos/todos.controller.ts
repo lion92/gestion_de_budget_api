@@ -1,8 +1,22 @@
-import { Body, Controller, Delete, Get, Param, Post, Put, UnauthorizedException } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  Post,
+  Put,
+  UnauthorizedException,
+  UploadedFile,
+  UseInterceptors,
+} from '@nestjs/common';
 import { TodosService } from './todos.service';
 import { TodosInterface } from '../interface/Todos.interface';
 import { TodoDTO } from '../dto/todoDTO';
 import { JwtService } from '@nestjs/jwt';
+import { FileInterceptor } from '@nestjs/platform-express';
+import e from 'express';
+import { diskStorage } from 'multer';
 
 @Controller('todos')
 export class TodosController {
@@ -67,5 +81,30 @@ export class TodosController {
       throw new UnauthorizedException();
     }
     await this.todos.create(todo);
+  }
+
+  @Get('pictures/:filename')
+  async getPicture({ fileName, res }: { fileName: any; res: e.Response }) {
+    res.sendFile(fileName, { root: './uploads' });
+  }
+
+  @Post('upload')
+  @UseInterceptors(
+    FileInterceptor('file', {
+      dest: '../../uploads',
+      storage: diskStorage({
+        destination: '../../uploads',
+        filename: (req, file, cb) => {
+          cb(null, file.originalname);
+        },
+      }),
+    }),
+  )
+  async local(@UploadedFile() file: Express.Multer.File) {
+    console.log(file);
+    return {
+      statusCode: 200,
+      data: file.path,
+    };
   }
 }
