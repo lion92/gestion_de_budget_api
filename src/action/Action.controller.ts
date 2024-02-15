@@ -34,7 +34,6 @@ export class ActionController {
     @Param('year') year,
     @Req() request: Request,
   ): Promise<ActionDTO[]> {
-    const authToken = request.headers['authorization'].split(' ')[1];
     return await this.actionService
       .findCategorieSum(user, month, year)
       .then((value) => value);
@@ -45,7 +44,6 @@ export class ActionController {
     @Param('user') user,
     @Req() request: Request,
   ): Promise<ActionDTO[]> {
-    const authToken = request.headers['authorization'].split(' ')[1];
     return await this.actionService
       .findCategorieSumAll(user)
       .then((value) => value);
