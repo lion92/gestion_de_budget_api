@@ -9,8 +9,7 @@ export class ActionService {
   constructor(
     @InjectRepository(Action)
     private actionRepository: Repository<Action>,
-  ) {
-  }
+  ) {}
 
   findAll(): Promise<Action[]> {
     return this.actionRepository.find({ relations: ['user', 'categorie'] });
@@ -44,22 +43,40 @@ export class ActionService {
 
   async findCategorieSum(id, month, year) {
     console.log(month);
-    let qb = this.actionRepository.createQueryBuilder('action');
-    qb.select('sum(montant) AS montant,categorieId, color, categorie, action.userId, dateAjout, dateTransaction, categorie.budgetDebutMois as budgetDebutMois');
+    const qb = this.actionRepository.createQueryBuilder('action');
+    qb.select(
+      'sum(montant) AS montant,categorieId, color, categorie, action.userId, dateAjout, dateTransaction, categorie.budgetDebutMois as budgetDebutMois',
+    );
     qb.innerJoin('action.user', 'user');
     qb.innerJoin('action.categorie', 'categorie');
-    qb.where({ user: id }).andWhere('EXTRACT(month FROM action.dateTransaction) = ' + month).andWhere('EXTRACT(year FROM action.dateTransaction) = ' + year);
+    qb.where({ user: id })
+      .andWhere('EXTRACT(month FROM action.dateTransaction) = ' + month)
+      .andWhere('EXTRACT(year FROM action.dateTransaction) = ' + year);
     qb.groupBy('categorieId');
     console.log(qb.getSql());
     return qb.execute();
   }
 
   async findByUser(id) {
-    let qb = this.actionRepository.createQueryBuilder('action');
-    qb.select('action.id as id, montant, categorie, description, user.id as user, categorie.id as categorieId, dateAjout, dateTransaction');
+    const qb = this.actionRepository.createQueryBuilder('action');
+    qb.select(
+      'action.id as id, montant, categorie, description, user.id as user, categorie.id as categorieId, dateAjout, dateTransaction',
+    );
     qb.innerJoin('action.user', 'user');
     qb.innerJoin('action.categorie', 'categorie');
     qb.where({ user: id });
+    console.log(qb.getSql());
+    return qb.execute();
+  }
+
+  findCategorieSumAll(id) {
+    const qb = this.actionRepository.createQueryBuilder('action');
+    qb.select(
+      'sum(montant) AS montant,categorieId, color, categorie, action.userId, dateAjout, dateTransaction, categorie.budgetDebutMois as budgetDebutMois',
+    );
+    qb.innerJoin('action.user', 'user');
+    qb.innerJoin('action.categorie', 'categorie');
+    qb.groupBy('categorieId');
     console.log(qb.getSql());
     return qb.execute();
   }

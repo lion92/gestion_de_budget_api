@@ -40,6 +40,17 @@ export class ActionController {
       .then((value) => value);
   }
 
+  @Get('/categorie/sum/all/:user')
+  async findCategorieSumAll(
+    @Param('user') user,
+    @Req() request: Request,
+  ): Promise<ActionDTO[]> {
+    const authToken = request.headers['authorization'].split(' ')[1];
+    return await this.actionService
+      .findCategorieSumAll(user)
+      .then((value) => value);
+  }
+
   @Get('/export/:id')
   async export(@Res() res, @Param('id') id) {
     const excel = require('node-excel-export');
