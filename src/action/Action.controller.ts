@@ -1,15 +1,4 @@
-import {
-  Body,
-  Controller,
-  Delete,
-  Get,
-  Param,
-  Post,
-  Put,
-  Req,
-  Res,
-  UnauthorizedException,
-} from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Post, Put, Req, Res, UnauthorizedException } from '@nestjs/common';
 import { ActionService } from './Action.service';
 import { ActionDTO } from '../dto/ActionDTO';
 import { CategorieDTO } from '../dto/CategorieDTO';
@@ -20,7 +9,8 @@ export class ActionController {
   constructor(
     private readonly actionService: ActionService,
     private jwtService: JwtService,
-  ) {}
+  ) {
+  }
 
   @Get()
   async findAll(): Promise<ActionDTO[]> {
@@ -100,7 +90,7 @@ export class ActionController {
         // <- the key should match the actual data key
         displayName: 'montant', // <- Here you specify the column header
         headerStyle: styles.headerDark, // <- Header style
-        cellStyle: function (value, row) {
+        cellStyle: function(value, row) {
           // <- style renderer function
           // if the status is 1 then color in green else color in red
           // Notice how we use another cell value to style the current one
@@ -114,7 +104,35 @@ export class ActionController {
         // <- the key should match the actual data key
         displayName: 'description', // <- Here you specify the column header
         headerStyle: styles.headerDark, // <- Header style
-        cellStyle: function (value, row) {
+        cellStyle: function(value, row) {
+          // <- style renderer function
+          // if the status is 1 then color in green else color in red
+          // Notice how we use another cell value to style the current one
+          return row.status_id == 1
+            ? styles.cellGreen
+            : { fill: { fgColor: { rgb: 'FFFF0000' } } }; // <- Inline cell style is possible
+        },
+        width: 120, // <- width in pixels
+      },
+      categorie: {
+        // <- the key should match the actual data key
+        displayName: 'categorie', // <- Here you specify the column header
+        headerStyle: styles.headerDark, // <- Header style
+        cellStyle: function(value, row) {
+          // <- style renderer function
+          // if the status is 1 then color in green else color in red
+          // Notice how we use another cell value to style the current one
+          return row.status_id == 1
+            ? styles.cellGreen
+            : { fill: { fgColor: { rgb: 'FFFF0000' } } }; // <- Inline cell style is possible
+        },
+        width: 120, // <- width in pixels
+      },
+      dateAjout: {
+        // <- the key should match the actual data key
+        displayName: 'dateAjout', // <- Here you specify the column header
+        headerStyle: styles.headerDark, // <- Header style
+        cellStyle: function(value, row) {
           // <- style renderer function
           // if the status is 1 then color in green else color in red
           // Notice how we use another cell value to style the current one
@@ -132,7 +150,12 @@ export class ActionController {
     // specification provided above. But you should have all the fields
     // that are listed in the report specification
     const dataset = listMontants.map((value) => {
-      return { montant: value.montant, description: value.description };
+      return {
+        montant: value.montant,
+        description: value.description,
+        categorie: value.categorie,
+        dateAjout: value.dateAjout,
+      };
     });
 
     // Define an array of merges. 1-1 = A:1
