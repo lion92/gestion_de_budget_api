@@ -75,6 +75,7 @@ export class ActionService {
       'sum(montant) AS montant,categorieId, color, categorie, action.userId, dateAjout, dateTransaction, categorie.budgetDebutMois as budgetDebutMois',
     );
     qb.innerJoin('action.user', 'user');
+    qb.where({ user: id });
     qb.innerJoin('action.categorie', 'categorie');
     qb.groupBy('categorieId');
     console.log(qb.getSql());
