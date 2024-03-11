@@ -53,4 +53,5 @@ export class CategorieController {
     }
     await this.connectionService.create(categorieDTO);
   }
+
 }

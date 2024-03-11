@@ -1,4 +1,4 @@
-import { Body, Controller, Param, Post, Put, Res, UnauthorizedException } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, Put, Res, UnauthorizedException } from '@nestjs/common';
 import { ConnectionService } from './connection.service';
 import { UserDTO } from '../dto/UserDTO';
 import { Response } from 'express';
@@ -77,5 +77,14 @@ export class ConnectionController {
     return {
       message: 'success',
     };
+  }
+
+  @Get('decrypt/:token')
+  async getId(@Param('token') token: string) {
+    const decryptToken = await this.jwtService.verifyAsync(token, { secret: 'Je veux pas donner mon mot de passe' });
+    if (!decryptToken) {
+      throw new UnauthorizedException();
+    }
+    return { id: '' + decryptToken?.id };
   }
 }
