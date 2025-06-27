@@ -1,4 +1,4 @@
-import { User } from '../entity/User.entity';
+import { User } from '../entity/user.entity';
 import Month from './enumMonth/Month';
 
 
@@ -11,6 +11,7 @@ export class CategorieDTO {
   readonly annee: number;
   readonly budgetDebutMois: number;
   jwt?: string;
+  iconName?: string; // ✅ optionnel si pas toujours défini
 
 
 }

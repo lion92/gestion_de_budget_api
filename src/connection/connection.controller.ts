@@ -1,11 +1,23 @@
-import { Body, Controller, Get, Param, Post, Put, Res, UnauthorizedException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Body,
+  Controller,
+  Get,
+  Param,
+  Post,
+  Put, Query,
+  Res,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { ConnectionService } from './connection.service';
 import { UserDTO } from '../dto/UserDTO';
 import { Response } from 'express';
 import { JwtService } from '@nestjs/jwt';
 import { Repository } from 'typeorm';
-import { User } from '../entity/User.entity';
+import { User } from '../entity/user.entity';
 import { InjectRepository } from '@nestjs/typeorm';
+import * as dotenv from 'dotenv';
+dotenv.config();
 
 @Controller('connection')
 export class ConnectionController {
@@ -35,7 +47,7 @@ export class ConnectionController {
 
   @Put(':id')
   async update(@Param('id') id, @Body() user: UserDTO, @Body() jwt: { jwt: string }): Promise<void> {
-    const data = await this.jwtService.verifyAsync(jwt.jwt, { secret: 'Je veux pas donner mon mot de passe' });
+    const data = await this.jwtService.verifyAsync(jwt.jwt, { secret: process.env.secret });
     if (!data) {
       throw new UnauthorizedException();
     }
@@ -47,7 +59,7 @@ export class ConnectionController {
   async user(@Body() jwt: { jwt: string }) {
     try {
       await console.log(jwt);
-      const data = await this.jwtService.verifyAsync(jwt.jwt, { secret: 'Je veux pas donner mon mot de passe' });
+      const data = await this.jwtService.verifyAsync(jwt.jwt, { secret: process.env.secret });
       await console.log(data);
       if (!data) {
         throw new UnauthorizedException();
@@ -81,10 +93,30 @@ export class ConnectionController {
 
   @Get('decrypt/:token')
   async getId(@Param('token') token: string) {
-    const decryptToken = await this.jwtService.verifyAsync(token, { secret: 'Je veux pas donner mon mot de passe' });
+    const decryptToken = await this.jwtService.verifyAsync(token, { secret: process.env.secret});
     if (!decryptToken) {
       throw new UnauthorizedException();
     }
     return { id: '' + decryptToken?.id };
+  }
+
+  @Get('verify-email')
+  async verifyEmail(@Query('token') token: string) {
+    if (!token) {
+      throw new BadRequestException('Token is required');
+    }
+
+    await this.connectionService.verifyEmail(token);
+    return { message: 'Email successfully verified' };
+  }
+
+  @Post('forgot-password')
+  forgotPassword(@Body('email') email: string) {
+    return this.connectionService.forgotPassword(email);
+  }
+
+  @Post('reset-password')
+  resetPassword(@Body() body: { token: string, newPassword: string }) {
+    return this.connectionService.resetPassword(body.token, body.newPassword);
   }
 }

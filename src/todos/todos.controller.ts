@@ -17,6 +17,8 @@ import { JwtService } from '@nestjs/jwt';
 import { FileInterceptor } from '@nestjs/platform-express';
 import e from 'express';
 import { diskStorage } from 'multer';
+import * as dotenv from 'dotenv';
+dotenv.config();
 
 @Controller('todos')
 export class TodosController {
@@ -47,7 +49,7 @@ export class TodosController {
   @Delete(':id')
   async remove(@Param('id') id, @Body() jwt: { jwt: string }): Promise<string> {
     const data = await this.jwtService.verifyAsync(jwt.jwt, {
-      secret: 'Je veux pas donner mon mot de passe',
+      secret: process.env.secret,
     });
     if (!data) {
       throw new UnauthorizedException();
@@ -63,7 +65,7 @@ export class TodosController {
     @Body() jwt: { jwt: string },
   ): Promise<string> {
     const data = await this.jwtService.verifyAsync(jwt.jwt, {
-      secret: 'Je veux pas donner mon mot de passe',
+      secret: process.env.secret,
     });
     if (!data) {
       throw new UnauthorizedException();
@@ -75,7 +77,7 @@ export class TodosController {
   @Post()
   async create(@Body() todo: TodoDTO, @Body() jwt: { jwt: string }) {
     const data = await this.jwtService.verifyAsync(jwt.jwt, {
-      secret: 'Je veux pas donner mon mot de passe',
+      secret: process.env.secret,
     });
     if (!data) {
       throw new UnauthorizedException();

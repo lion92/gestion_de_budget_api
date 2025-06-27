@@ -3,6 +3,9 @@ import { Body, Controller, Delete, Get, Param, Post, Put, UnauthorizedException 
 import { CategorieDTO } from '../dto/CategorieDTO';
 import { CategorieService } from './Categorie.service';
 import { JwtService } from '@nestjs/jwt';
+import * as dotenv from 'dotenv';
+dotenv.config();
+
 
 @Controller('categorie')
 export class CategorieController {
@@ -27,7 +30,7 @@ export class CategorieController {
 
   @Delete(':id')
   async remove(@Param('id') id, @Body() jwt: { jwt: string }): Promise<string> {
-    const data = await this.jwtService.verifyAsync(jwt.jwt, { secret: 'Je veux pas donner mon mot de passe' });
+    const data = await this.jwtService.verifyAsync(jwt.jwt, { secret: process.env.secret });
     if (!data) {
       throw new UnauthorizedException();
     }
@@ -37,7 +40,7 @@ export class CategorieController {
 
   @Put(':id')
   async update(@Param('id') id, @Body() categorieDTO: CategorieDTO): Promise<string> {
-    const data = await this.jwtService.verifyAsync(categorieDTO.jwt, { secret: 'Je veux pas donner mon mot de passe' });
+    const data = await this.jwtService.verifyAsync(categorieDTO.jwt, { secret: process.env.secret });
     if (!data) {
       throw new UnauthorizedException();
     }
@@ -47,11 +50,11 @@ export class CategorieController {
 
   @Post()
   async create(@Body() categorieDTO: CategorieDTO, @Body() jwt: { jwt: string }) {
-    const data = await this.jwtService.verifyAsync(jwt.jwt, { secret: 'Je veux pas donner mon mot de passe' });
+    const data = await this.jwtService.verifyAsync(jwt.jwt, { secret: process.env.secret });
     if (!data) {
       throw new UnauthorizedException();
     }
-    await this.connectionService.create(categorieDTO);
+    return await this.connectionService.create(categorieDTO);
   }
 
 }

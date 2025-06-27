@@ -1,6 +1,7 @@
-import { Column, Entity, ManyToOne, PrimaryGeneratedColumn } from 'typeorm';
-import { User } from './User.entity';
+import { Column, Entity, JoinColumn, ManyToOne, OneToOne, PrimaryGeneratedColumn } from 'typeorm';
+import { User } from './user.entity';
 import Month from '../dto/enumMonth/Month';
+import { CategoryImage } from './categorieImage.entity';
 
 
 @Entity()
@@ -30,5 +31,7 @@ export class Categorie {
   })
   @ManyToOne(type => User, user => user.id) user: User;
 
-
+  @OneToOne(() => CategoryImage, (image) => image.categorie)
+  @JoinColumn({ name: 'categorieId' }) // ou le nom correct de la colonne de jointure
+  categoryImage: CategoryImage;
 }

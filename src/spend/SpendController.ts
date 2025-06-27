@@ -1,16 +1,31 @@
-import { Body, Controller, Delete, Get, Param, Post, Put, Req, Res, UnauthorizedException } from '@nestjs/common';
-import { ActionService } from './Action.service';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  Post,
+  Put,
+  Req,
+  Res,
+  UnauthorizedException,
+} from '@nestjs/common';
+import { SpendService } from './Spend.service';
 import { ActionDTO } from '../dto/ActionDTO';
 import { CategorieDTO } from '../dto/CategorieDTO';
 import { JwtService } from '@nestjs/jwt';
+import { PdfService } from './Pdf.service';
+import { Response } from 'express';
+import * as dotenv from 'dotenv';
+dotenv.config();
 
 @Controller('action')
-export class ActionController {
+export class SpendController {
   constructor(
-    private readonly actionService: ActionService,
+    private readonly actionService: SpendService,
     private jwtService: JwtService,
-  ) {
-  }
+    private readonly pdfService: PdfService,
+  ) {}
 
   @Get()
   async findAll(): Promise<ActionDTO[]> {
@@ -29,6 +44,18 @@ export class ActionController {
       .then((value) => value);
   }
 
+  @Get('/montant/sum/byuser/:user/:month/:year')
+  async findSum(
+    @Param('user') user,
+    @Param('month') month,
+    @Param('year') year,
+    @Req() request: Request,
+  ): Promise<ActionDTO[]> {
+    return await this.actionService
+      .findSum(user, month, year)
+      .then((value) => value);
+  }
+
   @Get('/categorie/sum/all/:user')
   async findCategorieSumAll(
     @Param('user') user,
@@ -41,6 +68,7 @@ export class ActionController {
 
   @Get('/export/:id')
   async export(@Res() res, @Param('id') id) {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
     const excel = require('node-excel-export');
     const listMontants = await this.actionService.findByUser(id);
     console.log(
@@ -90,7 +118,7 @@ export class ActionController {
         // <- the key should match the actual data key
         displayName: 'montant', // <- Here you specify the column header
         headerStyle: styles.headerDark, // <- Header style
-        cellStyle: function(value, row) {
+        cellStyle: function (value, row) {
           // <- style renderer function
           // if the status is 1 then color in green else color in red
           // Notice how we use another cell value to style the current one
@@ -104,7 +132,7 @@ export class ActionController {
         // <- the key should match the actual data key
         displayName: 'description', // <- Here you specify the column header
         headerStyle: styles.headerDark, // <- Header style
-        cellStyle: function(value, row) {
+        cellStyle: function (value, row) {
           // <- style renderer function
           // if the status is 1 then color in green else color in red
           // Notice how we use another cell value to style the current one
@@ -118,7 +146,7 @@ export class ActionController {
         // <- the key should match the actual data key
         displayName: 'categorie', // <- Here you specify the column header
         headerStyle: styles.headerDark, // <- Header style
-        cellStyle: function(value, row) {
+        cellStyle: function (value, row) {
           // <- style renderer function
           // if the status is 1 then color in green else color in red
           // Notice how we use another cell value to style the current one
@@ -132,7 +160,7 @@ export class ActionController {
         // <- the key should match the actual data key
         displayName: 'dateAjout', // <- Here you specify the column header
         headerStyle: styles.headerDark, // <- Header style
-        cellStyle: function(value, row) {
+        cellStyle: function (value, row) {
           // <- style renderer function
           // if the status is 1 then color in green else color in red
           // Notice how we use another cell value to style the current one
@@ -196,7 +224,7 @@ export class ActionController {
   @Delete(':id')
   async remove(@Param('id') id, @Body() jwt: { jwt: string }): Promise<string> {
     const data = await this.jwtService.verifyAsync(jwt.jwt, {
-      secret: 'Je veux pas donner mon mot de passe',
+      secret: process.env.secret,
     });
     if (!data) {
       throw new UnauthorizedException();
@@ -208,7 +236,7 @@ export class ActionController {
   @Put(':id')
   async update(@Param('id') id, @Body() actinDTO: ActionDTO): Promise<string> {
     const data = await this.jwtService.verifyAsync(actinDTO.jwt, {
-      secret: 'Je veux pas donner mon mot de passe',
+      secret: process.env.secret,
     });
     if (!data) {
       throw new UnauthorizedException();
@@ -220,11 +248,29 @@ export class ActionController {
   @Post()
   async create(@Body() actionDTO: ActionDTO) {
     const data = await this.jwtService.verifyAsync(actionDTO.jwt, {
-      secret: 'Je veux pas donner mon mot de passe',
+      secret: process.env.secret,
     });
     if (!data) {
       throw new UnauthorizedException();
     }
     await this.actionService.create(actionDTO);
   }
+
+  @Get('generate-pdf/:id')
+  async generatePdf(@Res() res: Response, @Param('id') id) {
+    const pdfStream = this.pdfService.generatePdf(id);
+    res.setHeader('Content-Disposition', 'attachment; filename="example.pdf"');
+    res.setHeader('Content-Type', 'application/pdf');
+    pdfStream.then((value) => value.pipe(res));
+  }
+
+  @Get('generateAll-categorie-bilan/:id')
+  async generatePDFAll(@Res() res: Response, @Param('id') id) {
+    const pdfStream = this.pdfService.generatePdfSumAll(id);
+    res.setHeader('Content-Disposition', 'attachment; filename="example.pdf"');
+    res.setHeader('Content-Type', 'application/pdf');
+    pdfStream.then((value) => value.pipe(res));
+  }
+
+
 }

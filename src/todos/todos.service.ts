@@ -1,57 +1,41 @@
 import { Injectable } from '@nestjs/common';
-import { TodoDTO } from '../dto/todoDTO';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Todo } from '../entity/todo.entity';
 import { Repository } from 'typeorm';
+import { Todo } from '../entity/todo.entity';
+import { TodoDTO } from '../dto/todoDTO';
 
 @Injectable()
 export class TodosService {
-  todos = [
-    {
-      id: 1,
-      title: 'todo app',
-      description: 'test',
-    },
-    {
-      id: 1,
-      title: 'todo app',
-      description: 'test',
-    },
-    {
-      id: 2,
-      title: 'todo app',
-      description: 'test',
-    },
-    {
-      id: 3,
-      title: 'todo app',
-      description: 'test',
-    },
-  ];
-
   constructor(
     @InjectRepository(Todo)
     private todoRepository: Repository<Todo>,
   ) {}
 
-  findAll(): Promise<Todo[]> {
-    return this.todoRepository.find();
+  async findAll(): Promise<Todo[]> {
+    return this.todoRepository.find({
+      relations: ['user'],
+      order: { createdAt: 'DESC' },
+    });
   }
 
   async findOneBy(id: number): Promise<Todo | null> {
-    return await this.todoRepository.findOneBy({ id });
+    return this.todoRepository.findOne({
+      where: { id },
+      relations: ['user'],
+    });
   }
 
-  async delete(id: number) {
+  async delete(id: number): Promise<void> {
     await this.todoRepository.delete(id);
-    console.log('1');
+    console.log('Todo supprimé');
   }
 
-  async create(todo: TodoDTO) {
-    await this.todoRepository.save(todo);
+  async create(todo: TodoDTO): Promise<Todo> {
+    const newTodo = this.todoRepository.create(todo);
+    return this.todoRepository.save(newTodo);
   }
 
-  async update(id: number, todo: TodoDTO) {
+  async update(id: number, todo: TodoDTO): Promise<void> {
     await this.todoRepository.update(id, {
       title: todo.title,
       description: todo.description,
@@ -59,13 +43,22 @@ export class TodosService {
     });
   }
 
-  async findByUser(id) {
+  async findByUser(userId: number): Promise<any[]> {
     const qb = this.todoRepository.createQueryBuilder('tache');
-    qb.select(
-      'tache.id as id, user.id as user, description, title, nom, prenom',
-    );
-    qb.innerJoin('tache.user', 'user');
-    qb.where({ user: id });
+    qb.select([
+      'tache.id AS id',
+      'tache.title AS title',
+      'tache.description AS description',
+      'tache.createdAt AS createdAt',
+      'tache.updatedAt AS updatedAt',
+      'user.id AS userId',
+      'user.nom AS nom',
+      'user.prenom AS prenom',
+    ])
+      .innerJoin('tache.user', 'user')
+      .where('user.id = :userId', { userId })
+      .orderBy('tache.createdAt', 'DESC');
+
     console.log(qb.getSql());
     return qb.execute();
   }

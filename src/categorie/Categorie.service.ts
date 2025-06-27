@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { Categorie } from '../entity/Categorie.entity';
+import { Categorie } from '../entity/categorie.entity';
 import { CategorieDTO } from '../dto/CategorieDTO';
 
 @Injectable()
@@ -26,7 +26,7 @@ export class CategorieService {
   }
 
   async create(categorieDTO: CategorieDTO) {
-    await this.categorieRepository.save(categorieDTO);
+    return await this.categorieRepository.save(categorieDTO)
   }
 
   async update(id: number, categorieDTO: CategorieDTO) {
@@ -40,13 +40,32 @@ export class CategorieService {
     });
   }
 
+  async findByUser(id: number) {
+    const qb = this.categorieRepository.createQueryBuilder('categorie');
 
-  async findByUser(id) {
-    let qb = this.categorieRepository.createQueryBuilder('categorie');
-    qb.select('categorie.id as id, user.id as user, categorie, color, categorie.month as month, categorie.annee as annee, categorie.budgetDebutMois as budgetDebutMois ');
+    qb.select([
+      'categorie.id AS id',
+      'user.id AS user',
+      'categorie.categorie AS categorie',
+      'categorie.color AS color',
+      'categorie.month AS month',
+      'categorie.annee AS annee',
+      'categorie.budgetDebutMois AS budgetDebutMois',
+      'categoryImage.iconName AS iconName', // 👈 on récupère aussi l’icône
+    ]);
+
     qb.innerJoin('categorie.user', 'user');
-    qb.where({ user: id });
-    console.log(qb.getSql());
+    qb.leftJoin(
+      'category_image',
+      'categoryImage',
+      'categoryImage.categorieId = categorie.id',
+    ); // 👈 LEFT JOIN
+
+    qb.where('user.id = :id', { id });
+
+    console.log(await qb.getSql()); // Pour debug
+
     return qb.execute();
   }
+
 }

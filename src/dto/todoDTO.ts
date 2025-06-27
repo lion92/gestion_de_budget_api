@@ -1,9 +1,11 @@
-import { User } from '../entity/User.entity';
+import { UserDTO } from './UserDTO';
 
 export class TodoDTO {
   readonly title: string;
   readonly description: string;
-  readonly user: User;
+  readonly user: UserDTO;
+  readonly createdAt?: Date;
+  readonly updatedAt?: Date;
   jwt?: string;
 
 }
