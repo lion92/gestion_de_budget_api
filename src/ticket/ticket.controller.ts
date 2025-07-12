@@ -6,20 +6,21 @@ import {
   Post,
   UploadedFile,
   UseInterceptors,
-  Res,
   UnauthorizedException,
+  BadRequestException,
+  Logger,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
 import { extname, join } from 'path';
 import * as fs from 'fs';
-import { Response } from 'express';
 import { TicketService } from './ticket.service';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { User } from '../entity/user.entity';
 import { JwtService } from '@nestjs/jwt';
 import { Ticket } from '../entity/ticket.entity';
+import { v4 as uuidv4 } from 'uuid';
 
 const uploadPath = join(__dirname, '..', '..', 'uploads');
 if (!fs.existsSync(uploadPath)) {
@@ -28,6 +29,8 @@ if (!fs.existsSync(uploadPath)) {
 
 @Controller('ticket')
 export class TicketController {
+  private readonly logger = new Logger(TicketController.name);
+
   constructor(
     private readonly ticketService: TicketService,
     private readonly jwtService: JwtService,
@@ -37,28 +40,36 @@ export class TicketController {
     private readonly ticketRepository: Repository<Ticket>,
   ) {}
 
+  /**
+   * Upload et analyse d'un ticket avec OCR
+   */
   @Post('upload')
   @UseInterceptors(
     FileInterceptor('file', {
       storage: diskStorage({
         destination: uploadPath,
         filename: (req, file, cb) => {
-          const uniqueSuffix =
-            Date.now() + '-' + Math.round(Math.random() * 1e9);
-          cb(
-            null,
-            `${file.fieldname}-${uniqueSuffix}${extname(file.originalname)}`,
-          );
+          // Utiliser UUID pour éviter les conflits de noms
+          const uniqueName = `ticket-${uuidv4()}${extname(file.originalname)}`;
+          cb(null, uniqueName);
         },
       }),
       fileFilter: (req, file, cb) => {
-        const allowed = ['.jpg', '.jpeg', '.png', '.pdf'];
+        const allowedExtensions = ['.jpg', '.jpeg', '.png', '.pdf'];
+        const allowedMimeTypes = [
+          'image/jpeg',
+          'image/jpg',
+          'image/png',
+          'application/pdf'
+        ];
+
         const ext = extname(file.originalname).toLowerCase();
-        if (!allowed.includes(ext)) {
+        const mimeType = file.mimetype;
+
+        if (!allowedExtensions.includes(ext) || !allowedMimeTypes.includes(mimeType)) {
           return cb(
-            new HttpException(
-              'Fichier non supporté (jpg, jpeg, png, pdf)',
-              HttpStatus.BAD_REQUEST,
+            new BadRequestException(
+              'Format de fichier non supporté. Utilisez: JPG, JPEG, PNG ou PDF'
             ),
             false,
           );
@@ -67,75 +78,321 @@ export class TicketController {
       },
       limits: {
         fileSize: 10 * 1024 * 1024, // 10 Mo
+        files: 1, // Un seul fichier
       },
     }),
   )
   async uploadTicket(
     @UploadedFile() file: Express.Multer.File,
     @Body() body: { jwt: string },
-    @Res() res: Response,
   ) {
-    try {
-      const { jwt } = body;
+    const startTime = Date.now();
 
-      const data = await this.jwtService.verifyAsync(jwt, {
-        secret: process.env.secret,
+    try {
+      // Validation du fichier
+      if (!file) {
+        throw new BadRequestException('Aucun fichier fourni');
+      }
+
+      if (!body.jwt) {
+        throw new BadRequestException('Token JWT requis');
+      }
+
+      // Vérification JWT
+      const data = await this.jwtService.verifyAsync(body.jwt, {
+        secret: process.env.JWT_SECRET || process.env.secret,
       });
 
-      if (!data) throw new UnauthorizedException();
+      if (!data?.id) {
+        throw new UnauthorizedException('Token JWT invalide');
+      }
 
+      // Récupération de l'utilisateur
       const user = await this.userRepository.findOne({
         where: { id: data.id },
       });
 
-      if (!user)
+      if (!user) {
         throw new HttpException('Utilisateur non trouvé', HttpStatus.NOT_FOUND);
+      }
 
+      this.logger.log(`Début analyse OCR - Fichier: ${file.filename}, Utilisateur: ${user.id}`);
+
+      // Validation supplémentaire de la taille
+      if (file.size > 10 * 1024 * 1024) {
+        // Supprimer le fichier uploadé
+        if (fs.existsSync(file.path)) {
+          fs.unlinkSync(file.path);
+        }
+        throw new BadRequestException('Fichier trop volumineux (max 10MB)');
+      }
+
+      // Traitement OCR
       const result = await this.ticketService.extractTotal(file.path, user);
-      return res.status(200).json(result);
-    } catch (err) {
-      console.error('❌ Erreur ticket upload:', err.message);
-      return res.status(500).json({ success: false, message: err.message });
+
+      const processingTime = Date.now() - startTime;
+      this.logger.log(`OCR terminé en ${processingTime}ms - Succès: ${result.success}`);
+
+      return {
+        ...result,
+        metadata: {
+          fileName: file.originalname,
+          fileSize: file.size,
+          processingTime: `${processingTime}ms`,
+        }
+      };
+
+    } catch (error) {
+      // Nettoyer le fichier en cas d'erreur
+      if (file?.path && fs.existsSync(file.path)) {
+        try {
+          fs.unlinkSync(file.path);
+          this.logger.log(`Fichier temporaire supprimé: ${file.path}`);
+        } catch (cleanupError) {
+          this.logger.warn(`Impossible de supprimer le fichier: ${cleanupError.message}`);
+        }
+      }
+
+      this.logger.error(`Erreur upload ticket:`, error);
+
+      if (error instanceof HttpException) {
+        throw error;
+      }
+
+      throw new HttpException(
+        `Erreur lors du traitement: ${error.message}`,
+        HttpStatus.INTERNAL_SERVER_ERROR
+      );
     }
   }
 
+  /**
+   * Récupérer tous les tickets de l'utilisateur connecté
+   */
   @Post('all')
-  async getAll(@Body() body: { jwt: string }) {
-    const { jwt } = body;
+  async getAllTickets(@Body() body: { jwt: string }) {
+    try {
+      if (!body.jwt) {
+        throw new BadRequestException('Token JWT requis');
+      }
 
-    const data = await this.jwtService.verifyAsync(jwt, {
-      secret: process.env.secret,
-    });
+      const data = await this.jwtService.verifyAsync(body.jwt, {
+        secret: process.env.JWT_SECRET || process.env.secret,
+      });
 
-    if (!data) throw new UnauthorizedException();
+      if (!data?.id) {
+        throw new UnauthorizedException('Token JWT invalide');
+      }
 
-    const user = await this.userRepository.findOne({ where: { id: data.id } });
+      const user = await this.userRepository.findOne({
+        where: { id: data.id }
+      });
 
-    if (!user)
-      throw new HttpException('Utilisateur non trouvé', HttpStatus.NOT_FOUND);
+      if (!user) {
+        throw new HttpException('Utilisateur non trouvé', HttpStatus.NOT_FOUND);
+      }
 
-    return await this.ticketRepository.find({
-      where: { user: { id: user.id } },
-      order: { dateAjout: 'DESC' },
-    });
+      const tickets = await this.ticketRepository.find({
+        where: { user: { id: user.id } },
+        order: { dateAjout: 'DESC' },
+        select: [
+          'id',
+          'texte',
+          'dateAjout',
+          'totalExtrait',
+          'dateTicket',
+          'commercant'
+        ],
+      });
+
+      return {
+        success: true,
+        count: tickets.length,
+        tickets,
+      };
+    } catch (error) {
+      this.logger.error('Erreur récupération tickets:', error);
+
+      if (error instanceof HttpException) {
+        throw error;
+      }
+
+      throw new HttpException(
+        'Erreur lors de la récupération des tickets',
+        HttpStatus.INTERNAL_SERVER_ERROR
+      );
+    }
   }
 
+  /**
+   * Supprimer un ticket
+   */
   @Post('delete')
   async deleteTicket(@Body() body: { jwt: string; id: number }) {
-    const { jwt, id } = body;
+    try {
+      const { jwt, id } = body;
 
-    const data = await this.jwtService.verifyAsync(jwt, {
-      secret: process.env.secret,
-    });
+      if (!jwt || !id) {
+        throw new BadRequestException('JWT et ID requis');
+      }
 
-    if (!data) throw new UnauthorizedException();
+      const data = await this.jwtService.verifyAsync(jwt, {
+        secret: process.env.JWT_SECRET || process.env.secret,
+      });
 
-    const user = await this.userRepository.findOne({ where: { id: data.id } });
+      if (!data?.id) {
+        throw new UnauthorizedException('Token JWT invalide');
+      }
 
-    if (!user)
-      throw new HttpException('Utilisateur non trouvé', HttpStatus.NOT_FOUND);
+      const user = await this.userRepository.findOne({
+        where: { id: data.id }
+      });
 
-    await this.ticketService.deleteTicket(id, user);
-    return { message: 'Ticket supprimé avec succès.' };
+      if (!user) {
+        throw new HttpException('Utilisateur non trouvé', HttpStatus.NOT_FOUND);
+      }
+
+      await this.ticketService.deleteTicket(id, user);
+
+      return {
+        success: true,
+        message: 'Ticket supprimé avec succès.'
+      };
+    } catch (error) {
+      this.logger.error(`Erreur suppression ticket ${body.id}:`, error);
+
+      if (error instanceof HttpException) {
+        throw error;
+      }
+
+      throw new HttpException(
+        'Erreur lors de la suppression',
+        HttpStatus.INTERNAL_SERVER_ERROR
+      );
+    }
+  }
+
+  /**
+   * Récupérer un ticket spécifique
+   */
+  @Post('get')
+  async getTicket(@Body() body: { jwt: string; id: number }) {
+    try {
+      const { jwt, id } = body;
+
+      if (!jwt || !id) {
+        throw new BadRequestException('JWT et ID requis');
+      }
+
+      const data = await this.jwtService.verifyAsync(jwt, {
+        secret: process.env.JWT_SECRET || process.env.secret,
+      });
+
+      if (!data?.id) {
+        throw new UnauthorizedException('Token JWT invalide');
+      }
+
+      const user = await this.userRepository.findOne({
+        where: { id: data.id }
+      });
+
+      if (!user) {
+        throw new HttpException('Utilisateur non trouvé', HttpStatus.NOT_FOUND);
+      }
+
+      const ticket = await this.ticketRepository.findOne({
+        where: {
+          id,
+          user: { id: user.id }
+        },
+      });
+
+      if (!ticket) {
+        throw new HttpException('Ticket non trouvé', HttpStatus.NOT_FOUND);
+      }
+
+      return {
+        success: true,
+        ticket,
+      };
+    } catch (error) {
+      this.logger.error(`Erreur récupération ticket ${body.id}:`, error);
+
+      if (error instanceof HttpException) {
+        throw error;
+      }
+
+      throw new HttpException(
+        'Erreur lors de la récupération du ticket',
+        HttpStatus.INTERNAL_SERVER_ERROR
+      );
+    }
+  }
+
+  /**
+   * Obtenir les statistiques des tickets pour l'utilisateur
+   */
+  @Post('stats')
+  async getTicketStats(@Body() body: { jwt: string }) {
+    try {
+      if (!body.jwt) {
+        throw new BadRequestException('Token JWT requis');
+      }
+
+      const data = await this.jwtService.verifyAsync(body.jwt, {
+        secret: process.env.JWT_SECRET || process.env.secret,
+      });
+
+      if (!data?.id) {
+        throw new UnauthorizedException('Token JWT invalide');
+      }
+
+      const user = await this.userRepository.findOne({
+        where: { id: data.id }
+      });
+
+      if (!user) {
+        throw new HttpException('Utilisateur non trouvé', HttpStatus.NOT_FOUND);
+      }
+
+      const [totalTickets, totalAmount] = await Promise.all([
+        this.ticketRepository.count({
+          where: { user: { id: user.id } }
+        }),
+        this.ticketRepository
+          .createQueryBuilder('ticket')
+          .select('SUM(ticket.totalExtrait)', 'sum')
+          .where('ticket.userId = :userId', { userId: user.id })
+          .andWhere('ticket.totalExtrait IS NOT NULL')
+          .getRawOne()
+      ]);
+
+      const recentTickets = await this.ticketRepository.find({
+        where: { user: { id: user.id } },
+        order: { dateAjout: 'DESC' },
+        take: 5,
+        select: ['id', 'commercant', 'totalExtrait', 'dateAjout'],
+      });
+
+      return {
+        success: true,
+        stats: {
+          totalTickets,
+          totalAmount: parseFloat(totalAmount?.sum || '0'),
+          recentTickets,
+        },
+      };
+    } catch (error) {
+      this.logger.error('Erreur récupération statistiques:', error);
+
+      if (error instanceof HttpException) {
+        throw error;
+      }
+
+      throw new HttpException(
+        'Erreur lors de la récupération des statistiques',
+        HttpStatus.INTERNAL_SERVER_ERROR
+      );
+    }
   }
 }
