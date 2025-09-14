@@ -157,22 +157,22 @@ export class ConnectionService {
 
   async sendVerificationEmail(email: string, token: string): Promise<void> {
     const transporter = nodemailer.createTransport({
-      host: 'mail.krissclotilde.com',
-      port: 465,
-      secure: true, // Utiliser SSL/TLS
+      host: process.env.MAIL_HOST,
+      port: parseInt(process.env.MAIL_PORT),
+      secure: process.env.MAIL_SECURE === 'true',
       auth: {
-        user: 'noreply_justerecipes@krissclotilde.com',
-        pass: ''
+        user: process.env.MAIL_USER,
+        pass: process.env.MAIL_PASSWORD
       },
       tls: {
         rejectUnauthorized: false, // Ignore les erreurs de certificat
       },
     });
 
-    const verificationUrl = `https://www.krisscode.fr/connection/verify-email?token=${token}`;
+    const verificationUrl = `${process.env.VERIFICATION_URL}?token=${token}`;
 
     const mailOptions = {
-      from: 'noreply_justerecipes@krissclotilde.com',
+      from: process.env.MAIL_USER,
       to: email,
       subject: 'Email Verification',
       text: `Please verify your email by clicking on the following link: ${verificationUrl}`,
@@ -221,22 +221,22 @@ export class ConnectionService {
 
   async sendResetPasswordEmail(email: string, token: string): Promise<{ success: boolean; message: string }> {
     const transporter = nodemailer.createTransport({
-      host: 'mail.krissclotilde.com',
-      port: 465,
-      secure: true, // Utiliser SSL/TLS
+      host: process.env.MAIL_HOST,
+      port: parseInt(process.env.MAIL_PORT),
+      secure: process.env.MAIL_SECURE === 'true',
       auth: {
-        user: 'noreply_justerecipes@krissclotilde.com',
-        pass: ''
+        user: process.env.MAIL_USER,
+        pass: process.env.MAIL_PASSWORD
       },
       tls: {
         rejectUnauthorized: false,
       },
     });
 
-    const resetUrl = `https://gestiontaches.krissclotilde.com/reset-password?token=${token}`;
+    const resetUrl = `${process.env.RESET_PASSWORD_URL}?token=${token}`;
 
     const mailOptions = {
-      from: 'noreply_justerecipes@krissclotilde.com',
+      from: process.env.MAIL_USER,
       to: email,
       subject: 'Réinitialisation de votre mot de passe',
       text: `Pour réinitialiser votre mot de passe, cliquez sur le lien suivant : ${resetUrl}\nCe lien est valable 1 heure.`,
