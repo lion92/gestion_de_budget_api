@@ -44,6 +44,9 @@ export class Ticket {
   @Column({ type: 'decimal', precision: 5, scale: 2, nullable: true })
   confianceOCR?: number;
 
+  @Column({ nullable: true })
+  imagePath?: string; // Chemin vers l'image du ticket
+
   // Méthodes helper pour gérer le JSON manuellement
   get articles(): Array<{name: string, price: number, quantity?: number}> | undefined {
     if (!this.articlesJson) return undefined;

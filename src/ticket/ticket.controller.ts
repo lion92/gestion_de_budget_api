@@ -4,6 +4,9 @@ import {
   HttpException,
   HttpStatus,
   Post,
+  Get,
+  Param,
+  Res,
   UploadedFile,
   UseInterceptors,
   UnauthorizedException,
@@ -143,11 +146,11 @@ export class TicketController {
       };
 
     } catch (error) {
-      // Nettoyer le fichier en cas d'erreur
+      // Nettoyer le fichier uniquement en cas d'erreur critique
       if (file?.path && fs.existsSync(file.path)) {
         try {
           fs.unlinkSync(file.path);
-          this.logger.log(`Fichier temporaire supprimé: ${file.path}`);
+          this.logger.log(`Fichier supprimé suite à l'erreur: ${file.path}`);
         } catch (cleanupError) {
           this.logger.warn(`Impossible de supprimer le fichier: ${cleanupError.message}`);
         }
@@ -201,7 +204,8 @@ export class TicketController {
           'dateAjout',
           'totalExtrait',
           'dateTicket',
-          'commercant'
+          'commercant',
+          'imagePath'
         ],
       });
 
@@ -391,6 +395,112 @@ export class TicketController {
 
       throw new HttpException(
         'Erreur lors de la récupération des statistiques',
+        HttpStatus.INTERNAL_SERVER_ERROR
+      );
+    }
+  }
+
+  /**
+   * Modifier le montant d'un ticket
+   */
+  @Post('update-amount')
+  async updateTicketAmount(@Body() body: { jwt: string; id: number; amount: number }) {
+    try {
+      const { jwt, id, amount } = body;
+
+      if (!jwt || !id || amount === undefined) {
+        throw new BadRequestException('JWT, ID et montant requis');
+      }
+
+      if (amount < 0) {
+        throw new BadRequestException('Le montant doit être positif');
+      }
+
+      const data = await this.jwtService.verifyAsync(jwt, {
+        secret: process.env.JWT_SECRET || process.env.secret,
+      });
+
+      if (!data?.id) {
+        throw new UnauthorizedException('Token JWT invalide');
+      }
+
+      const user = await this.userRepository.findOne({
+        where: { id: data.id }
+      });
+
+      if (!user) {
+        throw new HttpException('Utilisateur non trouvé', HttpStatus.NOT_FOUND);
+      }
+
+      const ticket = await this.ticketRepository.findOne({
+        where: {
+          id,
+          user: { id: user.id }
+        },
+      });
+
+      if (!ticket) {
+        throw new HttpException('Ticket non trouvé', HttpStatus.NOT_FOUND);
+      }
+
+      ticket.totalExtrait = amount;
+      await this.ticketRepository.save(ticket);
+
+      return {
+        success: true,
+        message: 'Montant mis à jour avec succès',
+        ticket: {
+          id: ticket.id,
+          totalExtrait: ticket.totalExtrait,
+        }
+      };
+    } catch (error) {
+      this.logger.error(`Erreur mise à jour montant ${body.id}:`, error);
+
+      if (error instanceof HttpException) {
+        throw error;
+      }
+
+      throw new HttpException(
+        'Erreur lors de la mise à jour du montant',
+        HttpStatus.INTERNAL_SERVER_ERROR
+      );
+    }
+  }
+
+  /**
+   * Servir l'image d'un ticket
+   */
+  @Get('image/:id')
+  async getTicketImage(
+    @Param('id') id: number,
+    @Res() res,
+  ) {
+    try {
+      const ticket = await this.ticketRepository.findOne({
+        where: { id },
+        relations: ['user'],
+      });
+
+      if (!ticket) {
+        throw new HttpException('Ticket non trouvé', HttpStatus.NOT_FOUND);
+      }
+
+      if (!ticket.imagePath || !fs.existsSync(ticket.imagePath)) {
+        throw new HttpException('Image non trouvée', HttpStatus.NOT_FOUND);
+      }
+
+      // Servir l'image
+      res.sendFile(ticket.imagePath);
+    } catch (error) {
+      this.logger.error(`Erreur récupération image ${id}:`, error);
+
+      if (error instanceof HttpException) {
+        throw error;
+      }
+
+      throw new HttpException(
+        'Erreur lors de la récupération de l\'image',
         HttpStatus.INTERNAL_SERVER_ERROR
       );
     }

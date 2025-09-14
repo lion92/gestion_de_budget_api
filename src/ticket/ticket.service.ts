@@ -219,6 +219,7 @@ export class TicketService {
     text: string;
     message: string;
     extractedData?: any;
+    ticketId?: number;
   }> {
     const tempFiles: string[] = [];
 
@@ -306,6 +307,7 @@ export class TicketService {
       }
 
       // Sauvegarder même les résultats partiels
+      let savedTicket = null;
       if (success) {
         const ticket = this.ticketRepository.create({
           texte: bestResult.cleanedText || bestResult.originalText,
@@ -314,8 +316,9 @@ export class TicketService {
           totalExtrait: bestResult.extractedData.total || null,
           dateTicket: bestResult.extractedData.date || null,
           commercant: bestResult.extractedData.merchant || null,
+          imagePath: filePath, // Sauvegarder le chemin de l'image
         });
-        await this.ticketRepository.save(ticket);
+        savedTicket = await this.ticketRepository.save(ticket);
       }
 
       return {
@@ -323,6 +326,7 @@ export class TicketService {
         text: bestResult.cleanedText || bestResult.originalText,
         message,
         extractedData: bestResult.extractedData,
+        ticketId: savedTicket?.id,
       };
 
     } catch (error) {
