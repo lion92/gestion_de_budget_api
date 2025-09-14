@@ -17,58 +17,26 @@ export class TicketService {
   ) {}
 
   /**
-   * Créer plusieurs variantes d'image simplifiées mais efficaces
+   * Créer une seule variante optimisée rapidement
    */
-  private async createImageVariants(inputPath: string): Promise<string[]> {
-    const variants: string[] = [];
-
+  private async createOptimizedImage(inputPath: string): Promise<string> {
     try {
-      // 1. Version haute résolution
-      const highRes = inputPath.replace(/\.(jpg|jpeg|png)$/i, '_high.png');
+      const optimized = inputPath.replace(/\.(jpg|jpeg|png)$/i, '_opt.png');
       await sharp(inputPath)
-        .resize(3000, 3000, { fit: 'inside', withoutEnlargement: false })
+        .resize(2000, 2000, { fit: 'inside', withoutEnlargement: false })
         .greyscale()
         .normalize()
         .sharpen()
-        .modulate({ brightness: 1.2 })
         .threshold(120)
-        .png({ quality: 100, compressionLevel: 0 })
-        .toFile(highRes);
-      variants.push(highRes);
+        .png({ quality: 90, compressionLevel: 6 })
+        .toFile(optimized);
 
-      // 2. Version inversée
-      const inverted = inputPath.replace(/\.(jpg|jpeg|png)$/i, '_inv.png');
-      await sharp(inputPath)
-        .resize(2500, 2500, { fit: 'inside', withoutEnlargement: false })
-        .greyscale()
-        .negate()
-        .normalize()
-        .sharpen()
-        .threshold(128)
-        .png({ quality: 100, compressionLevel: 0 })
-        .toFile(inverted);
-      variants.push(inverted);
-
-      // 3. Version avec débruitage (blur + sharpen)
-      const denoised = inputPath.replace(/\.(jpg|jpeg|png)$/i, '_clean.png');
-      await sharp(inputPath)
-        .resize(2500, 2500, { fit: 'inside', withoutEnlargement: false })
-        .greyscale()
-        .blur(0.5)
-        .normalize()
-        .sharpen({ sigma: 2.0, m1: 1.0, m2: 2.0 })
-        .threshold(115)
-        .png({ quality: 100, compressionLevel: 0 })
-        .toFile(denoised);
-      variants.push(denoised);
-
-      this.logger.log(`${variants.length} variantes créées`);
-      return variants;
+      this.logger.log(`Image optimisée créée: ${optimized}`);
+      return optimized;
 
     } catch (error) {
-      this.logger.error('Erreur création variantes:', error);
-      // En cas d'erreur, retourner au moins l'image originale
-      return [inputPath];
+      this.logger.error('Erreur création image optimisée:', error);
+      return inputPath;
     }
   }
 
@@ -209,7 +177,7 @@ export class TicketService {
   }
 
   /**
-   * OCR robuste pour tickets de très mauvaise qualité
+   * OCR rapide et efficace avec early exit
    */
   async extractTotal(
     filePath: string,
@@ -224,60 +192,108 @@ export class TicketService {
     const tempFiles: string[] = [];
 
     try {
-      this.logger.log(`🔍 Analyse OCR robuste: ${filePath}`);
+      this.logger.log(`🔍 Analyse OCR rapide: ${filePath}`);
 
       if (!fs.existsSync(filePath)) {
         throw new Error('Fichier non trouvé');
       }
 
-      // Créer les variantes d'image
-      const variants = await this.createImageVariants(filePath);
-      tempFiles.push(...variants.filter(v => v !== filePath)); // Ne pas supprimer l'original
+      // Priorité des tests (du plus rapide au plus lent)
+      const testCases = [
+        { image: filePath, lang: 'fra' }, // 1. Image originale + français
+        { image: filePath, lang: 'fra+eng' }, // 2. Image originale + multi-langue
+      ];
 
-      // Tester toutes les combinaisons
-      const languages = ['fra', 'eng', 'fra+eng'];
       let bestResult = null;
       let bestScore = 0;
+      const GOOD_SCORE_THRESHOLD = 60; // Score suffisant pour early exit
 
-      for (const [index, variant] of variants.entries()) {
-        for (const lang of languages) {
-          try {
-            this.logger.log(`📸 Test variant ${index + 1}/${variants.length} - ${lang}`);
+      // Test rapide avec image originale
+      for (const [index, testCase] of testCases.entries()) {
+        try {
+          this.logger.log(`📸 Test rapide ${index + 1}: ${testCase.lang}`);
 
-            const { data } = await Tesseract.recognize(variant, lang, {
-              logger: m => {
-                if (m.status === 'recognizing text') {
-                  this.logger.log(`OCR ${index + 1}-${lang}: ${Math.round(m.progress * 100)}%`);
-                }
+          const { data } = await Tesseract.recognize(testCase.image, testCase.lang, {
+            logger: m => {
+              if (m.status === 'recognizing text') {
+                this.logger.log(`OCR ${index + 1}: ${Math.round(m.progress * 100)}%`);
               }
-            });
-
-            const originalText = data.text;
-            const cleanedText = this.cleanCorruptedText(originalText);
-            const extractedData = this.extractFromDamagedText(originalText, cleanedText);
-
-            // Score basé principalement sur les données extraites
-            let score = extractedData.confidence;
-            if (originalText.length > 10) score += 5; // Bonus si pas vide
-            if (cleanedText.length > 5) score += 5; // Bonus si nettoyage réussi
-
-            this.logger.log(`📊 V${index + 1}-${lang}: Score=${score}%, Total=${extractedData.total || 'N/A'}€`);
-
-            if (score > bestScore) {
-              bestScore = score;
-              bestResult = {
-                originalText,
-                cleanedText,
-                extractedData,
-                confidence: score,
-                variant: index + 1,
-                language: lang
-              };
             }
+          });
 
-          } catch (error) {
-            this.logger.warn(`❌ V${index + 1}-${lang}: ${error.message}`);
+          const originalText = data.text;
+          const cleanedText = this.cleanCorruptedText(originalText);
+          const extractedData = this.extractFromDamagedText(originalText, cleanedText);
+
+          let score = extractedData.confidence;
+          if (originalText.length > 10) score += 5;
+          if (cleanedText.length > 5) score += 5;
+
+          this.logger.log(`📊 Test ${index + 1}: Score=${score}%, Total=${extractedData.total || 'N/A'}€`);
+
+          if (score > bestScore) {
+            bestScore = score;
+            bestResult = {
+              originalText,
+              cleanedText,
+              extractedData,
+              confidence: score,
+              testCase: index + 1,
+              language: testCase.lang
+            };
           }
+
+          // Early exit si score suffisant
+          if (score >= GOOD_SCORE_THRESHOLD) {
+            this.logger.log(`✅ Score suffisant atteint (${score}%), arrêt anticipé`);
+            break;
+          }
+
+        } catch (error) {
+          this.logger.warn(`❌ Test ${index + 1}: ${error.message}`);
+        }
+      }
+
+      // Si pas de bon résultat, essayer avec image optimisée
+      if (bestScore < GOOD_SCORE_THRESHOLD) {
+        this.logger.log(`⚡ Score faible (${bestScore}%), tentative avec image optimisée`);
+
+        const optimizedImage = await this.createOptimizedImage(filePath);
+        tempFiles.push(optimizedImage);
+
+        try {
+          const { data } = await Tesseract.recognize(optimizedImage, 'fra', {
+            logger: m => {
+              if (m.status === 'recognizing text') {
+                this.logger.log(`OCR optimisé: ${Math.round(m.progress * 100)}%`);
+              }
+            }
+          });
+
+          const originalText = data.text;
+          const cleanedText = this.cleanCorruptedText(originalText);
+          const extractedData = this.extractFromDamagedText(originalText, cleanedText);
+
+          let score = extractedData.confidence;
+          if (originalText.length > 10) score += 5;
+          if (cleanedText.length > 5) score += 5;
+
+          this.logger.log(`📊 Optimisé: Score=${score}%, Total=${extractedData.total || 'N/A'}€`);
+
+          if (score > bestScore) {
+            bestScore = score;
+            bestResult = {
+              originalText,
+              cleanedText,
+              extractedData,
+              confidence: score,
+              testCase: 'optimisé',
+              language: 'fra'
+            };
+          }
+
+        } catch (error) {
+          this.logger.warn(`❌ OCR optimisé: ${error.message}`);
         }
       }
 
@@ -286,7 +302,7 @@ export class TicketService {
         throw new Error('Aucune reconnaissance OCR n\'a fonctionné');
       }
 
-      this.logger.log(`🏆 Meilleur: V${bestResult.variant}-${bestResult.language} (${bestScore}%)`);
+      this.logger.log(`🏆 Meilleur: ${bestResult.testCase}-${bestResult.language} (${bestScore}%)`);
 
       // Messages selon la qualité
       let message = '';
