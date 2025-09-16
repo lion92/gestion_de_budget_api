@@ -1,0 +1,1307 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>API Tester - NestJS API</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            overflow: hidden;
+        }
+
+        .header {
+            background: #2c3e50;
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+
+        .header h1 {
+            margin-bottom: 10px;
+        }
+
+        .token-status {
+            background: #34495e;
+            padding: 10px;
+            border-radius: 5px;
+            margin-top: 10px;
+        }
+
+        .main-content {
+            display: grid;
+            grid-template-columns: 300px 1fr;
+            min-height: 600px;
+        }
+
+        .sidebar {
+            background: #ecf0f1;
+            padding: 20px;
+            border-right: 1px solid #bdc3c7;
+        }
+
+        .endpoint-group {
+            margin-bottom: 20px;
+        }
+
+        .endpoint-group h3 {
+            color: #2c3e50;
+            margin-bottom: 10px;
+            font-size: 14px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .endpoint-item {
+            display: block;
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 5px;
+            background: white;
+            border: none;
+            border-radius: 5px;
+            text-align: left;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 12px;
+        }
+
+        .endpoint-item:hover {
+            background: #3498db;
+            color: white;
+            transform: translateX(5px);
+        }
+
+        .endpoint-item.active {
+            background: #2980b9;
+            color: white;
+        }
+
+        .method {
+            display: inline-block;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-weight: bold;
+            font-size: 10px;
+            margin-right: 8px;
+        }
+
+        .method.GET { background: #27ae60; color: white; }
+        .method.POST { background: #f39c12; color: white; }
+        .method.PUT { background: #8e44ad; color: white; }
+        .method.PATCH { background: #9b59b6; color: white; }
+        .method.DELETE { background: #e74c3c; color: white; }
+
+        .content-area {
+            padding: 20px;
+        }
+
+        .form-section {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #2c3e50;
+        }
+
+        .form-group input, .form-group textarea, .form-group select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-family: monospace;
+        }
+
+        .form-group textarea {
+            height: 100px;
+            resize: vertical;
+        }
+
+        .btn {
+            background: #3498db;
+            color: white;
+            padding: 12px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+            margin-right: 10px;
+            transition: background 0.3s ease;
+        }
+
+        .btn:hover {
+            background: #2980b9;
+        }
+
+        .btn-success {
+            background: #27ae60;
+        }
+
+        .btn-success:hover {
+            background: #219a52;
+        }
+
+        .btn-danger {
+            background: #e74c3c;
+        }
+
+        .btn-danger:hover {
+            background: #c0392b;
+        }
+
+        .response-section {
+            background: #2c3e50;
+            color: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-top: 20px;
+        }
+
+        .response-section h3 {
+            margin-bottom: 10px;
+        }
+
+        .response-content {
+            background: #34495e;
+            padding: 15px;
+            border-radius: 5px;
+            font-family: monospace;
+            white-space: pre-wrap;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .status-indicator {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: bold;
+            margin-left: 10px;
+        }
+
+        .status-success {
+            background: #27ae60;
+            color: white;
+        }
+
+        .status-error {
+            background: #e74c3c;
+            color: white;
+        }
+
+        .status-warning {
+            background: #f39c12;
+            color: white;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        .token-input {
+            background: #34495e;
+            color: white;
+            border: 1px solid #556983;
+        }
+
+        .endpoint-description {
+            background: #e8f5e8;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            border-left: 4px solid #27ae60;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🚀 API Tester - NestJS</h1>
+            <p>Interface de test pour votre API NestJS (Port: 3004)</p>
+            <div class="token-status">
+                <strong>Token JWT:</strong>
+                <span id="token-display">Non connecté</span>
+                <button class="btn btn-danger" onclick="clearToken()" style="margin-left: 10px; padding: 5px 10px; font-size: 12px;">Effacer</button>
+            </div>
+        </div>
+
+        <div class="main-content">
+            <div class="sidebar">
+                <div class="endpoint-group">
+                    <h3>🔐 Authentification</h3>
+                    <button class="endpoint-item" onclick="selectEndpoint('signup')">
+                        <span class="method POST">POST</span>/connection/signup
+                    </button>
+                    <button class="endpoint-item" onclick="selectEndpoint('login')">
+                        <span class="method POST">POST</span>/connection/login
+                    </button>
+                    <button class="endpoint-item" onclick="selectEndpoint('user')">
+                        <span class="method POST">POST</span>/connection/user
+                    </button>
+                    <button class="endpoint-item" onclick="selectEndpoint('logout')">
+                        <span class="method POST">POST</span>/connection/logout
+                    </button>
+                    <button class="endpoint-item" onclick="selectEndpoint('decrypt')">
+                        <span class="method GET">GET</span>/connection/decrypt/:token
+                    </button>
+                </div>
+
+                <div class="endpoint-group">
+                    <h3>✅ TODOs</h3>
+                    <button class="endpoint-item" onclick="selectEndpoint('todos-all')">
+                        <span class="method GET">GET</span>/todos
+                    </button>
+                    <button class="endpoint-item" onclick="selectEndpoint('todos-by-user')">
+                        <span class="method GET">GET</span>/todos/byuser/:user
+                    </button>
+                    <button class="endpoint-item" onclick="selectEndpoint('todos-create')">
+                        <span class="method POST">POST</span>/todos
+                    </button>
+                    <button class="endpoint-item" onclick="selectEndpoint('todos-update')">
+                        <span class="method PUT">PUT</span>/todos/:id
+                    </button>
+                    <button class="endpoint-item" onclick="selectEndpoint('todos-delete')">
+                        <span class="method DELETE">DELETE</span>/todos/:id
+                    </button>
+                </div>
+
+                <div class="endpoint-group">
+                    <h3>💰 Actions/Dépenses</h3>
+                    <button class="endpoint-item" onclick="selectEndpoint('actions-all')">
+                        <span class="method GET">GET</span>/action
+                    </button>
+                    <button class="endpoint-item" onclick="selectEndpoint('actions-by-user')">
+                        <span class="method GET">GET</span>/action/byuser/:user
+                    </button>
+                    <button class="endpoint-item" onclick="selectEndpoint('actions-create')">
+                        <span class="method POST">POST</span>/action
+                    </button>
+                    <button class="endpoint-item" onclick="selectEndpoint('actions-update')">
+                        <span class="method PUT">PUT</span>/action/:id
+                    </button>
+                    <button class="endpoint-item" onclick="selectEndpoint('actions-delete')">
+                        <span class="method DELETE">DELETE</span>/action/:id
+                    </button>
+                    <button class="endpoint-item" onclick="selectEndpoint('actions-sum-by-category')">
+                        <span class="method GET">GET</span>/action/categorie/sum/byuser/:user/:month/:year
+                    </button>
+                    <button class="endpoint-item" onclick="selectEndpoint('actions-sum-total')">
+                        <span class="method GET">GET</span>/action/montant/sum/byuser/:user/:month/:year
+                    </button>
+                    <button class="endpoint-item" onclick="selectEndpoint('actions-export')">
+                        <span class="method GET">GET</span>/action/export/:id
+                    </button>
+                    <button class="endpoint-item" onclick="selectEndpoint('actions-pdf')">
+                        <span class="method GET">GET</span>/action/generate-pdf/:id
+                    </button>
+                </div>
+
+                <div class="endpoint-group">
+                    <h3>🏦 Transactions</h3>
+                    <button class="endpoint-item" onclick="selectEndpoint('transactions-create')">
+                        <span class="method POST">POST</span>/transactions
+                    </button>
+                    <button class="endpoint-item" onclick="selectEndpoint('transactions-update')">
+                        <span class="method PATCH">PATCH</span>/transactions/:id
+                    </button>
+                    <button class="endpoint-item" onclick="selectEndpoint('transactions-delete')">
+                        <span class="method DELETE">DELETE</span>/transactions/:id
+                    </button>
+                    <button class="endpoint-item" onclick="selectEndpoint('transactions-by-envelope')">
+                        <span class="method GET">GET</span>/transactions/envelope/:id
+                    </button>
+                </div>
+
+                <div class="endpoint-group">
+                    <h3>🗂️ Autres</h3>
+                    <button class="endpoint-item" onclick="selectEndpoint('swagger')">
+                        <span class="method GET">GET</span>/api (Swagger)
+                    </button>
+                </div>
+            </div>
+
+            <div class="content-area">
+                <!-- Formulaire pour signup -->
+                <div id="signup-form" class="endpoint-form hidden">
+                    <div class="endpoint-description">
+                        <h3>📝 Inscription d'un nouvel utilisateur</h3>
+                        <p>Créer un nouveau compte utilisateur</p>
+                    </div>
+                    <div class="form-section">
+                        <div class="form-group">
+                            <label>Email:</label>
+                            <input type="email" id="signup-email" placeholder="user@example.com">
+                        </div>
+                        <div class="form-group">
+                            <label>Prénom:</label>
+                            <input type="text" id="signup-prenom" placeholder="Jean">
+                        </div>
+                        <div class="form-group">
+                            <label>Nom:</label>
+                            <input type="text" id="signup-nom" placeholder="Dupont">
+                        </div>
+                        <div class="form-group">
+                            <label>Mot de passe:</label>
+                            <input type="password" id="signup-password" placeholder="motdepasse123">
+                        </div>
+                        <button class="btn btn-success" onclick="executeSignup()">S'inscrire</button>
+                    </div>
+                </div>
+
+                <!-- Formulaire pour login -->
+                <div id="login-form" class="endpoint-form hidden">
+                    <div class="endpoint-description">
+                        <h3>🔑 Connexion utilisateur</h3>
+                        <p>Se connecter avec un compte existant</p>
+                    </div>
+                    <div class="form-section">
+                        <div class="form-group">
+                            <label>Email:</label>
+                            <input type="email" id="login-email" placeholder="user@example.com">
+                        </div>
+                        <div class="form-group">
+                            <label>Mot de passe:</label>
+                            <input type="password" id="login-password" placeholder="motdepasse123">
+                        </div>
+                        <button class="btn btn-success" onclick="executeLogin()">Se connecter</button>
+                    </div>
+                </div>
+
+                <!-- Formulaire pour user info -->
+                <div id="user-form" class="endpoint-form hidden">
+                    <div class="endpoint-description">
+                        <h3>👤 Informations utilisateur</h3>
+                        <p>Récupérer les informations de l'utilisateur connecté</p>
+                    </div>
+                    <div class="form-section">
+                        <button class="btn" onclick="executeGetUser()">Récupérer infos utilisateur</button>
+                    </div>
+                </div>
+
+                <!-- Formulaire pour logout -->
+                <div id="logout-form" class="endpoint-form hidden">
+                    <div class="endpoint-description">
+                        <h3>🚪 Déconnexion</h3>
+                        <p>Se déconnecter et effacer le cookie JWT</p>
+                    </div>
+                    <div class="form-section">
+                        <button class="btn btn-danger" onclick="executeLogout()">Se déconnecter</button>
+                    </div>
+                </div>
+
+                <!-- Formulaire pour decrypt token -->
+                <div id="decrypt-form" class="endpoint-form hidden">
+                    <div class="endpoint-description">
+                        <h3>🔓 Décryptage de token</h3>
+                        <p>Décrypter un token JWT pour récupérer l'ID utilisateur</p>
+                    </div>
+                    <div class="form-section">
+                        <div class="form-group">
+                            <label>Token JWT:</label>
+                            <input type="text" id="decrypt-token" placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...">
+                        </div>
+                        <button class="btn" onclick="executeDecrypt()">Décrypter</button>
+                        <button class="btn" onclick="fillCurrentToken()">Utiliser token actuel</button>
+                    </div>
+                </div>
+
+                <!-- Formulaire pour tous les todos -->
+                <div id="todos-all-form" class="endpoint-form hidden">
+                    <div class="endpoint-description">
+                        <h3>📋 Tous les TODOs</h3>
+                        <p>Récupérer la liste de tous les TODOs</p>
+                    </div>
+                    <div class="form-section">
+                        <button class="btn" onclick="executeGetAllTodos()">Récupérer tous les TODOs</button>
+                    </div>
+                </div>
+
+                <!-- Formulaire pour todos par utilisateur -->
+                <div id="todos-by-user-form" class="endpoint-form hidden">
+                    <div class="endpoint-description">
+                        <h3>👤 TODOs par utilisateur</h3>
+                        <p>Récupérer les TODOs d'un utilisateur spécifique</p>
+                    </div>
+                    <div class="form-section">
+                        <div class="form-group">
+                            <label>ID Utilisateur:</label>
+                            <input type="number" id="user-id" placeholder="1">
+                        </div>
+                        <button class="btn" onclick="executeGetTodosByUser()">Récupérer TODOs</button>
+                    </div>
+                </div>
+
+                <!-- Formulaire pour créer un todo -->
+                <div id="todos-create-form" class="endpoint-form hidden">
+                    <div class="endpoint-description">
+                        <h3>➕ Créer un TODO</h3>
+                        <p>Ajouter un nouveau TODO (nécessite une authentification)</p>
+                    </div>
+                    <div class="form-section">
+                        <div class="form-group">
+                            <label>Titre:</label>
+                            <input type="text" id="todo-title" placeholder="Faire les courses">
+                        </div>
+                        <div class="form-group">
+                            <label>Description:</label>
+                            <textarea id="todo-description" placeholder="Acheter du pain, du lait..."></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label>ID Utilisateur:</label>
+                            <input type="number" id="todo-user-id" placeholder="1">
+                        </div>
+                        <button class="btn btn-success" onclick="executeCreateTodo()">Créer TODO</button>
+                    </div>
+                </div>
+
+                <!-- Formulaire pour modifier un todo -->
+                <div id="todos-update-form" class="endpoint-form hidden">
+                    <div class="endpoint-description">
+                        <h3>✏️ Modifier un TODO</h3>
+                        <p>Mettre à jour un TODO existant (nécessite une authentification)</p>
+                    </div>
+                    <div class="form-section">
+                        <div class="form-group">
+                            <label>ID du TODO:</label>
+                            <input type="number" id="update-todo-id" placeholder="1">
+                        </div>
+                        <div class="form-group">
+                            <label>Titre:</label>
+                            <input type="text" id="update-todo-title" placeholder="Faire les courses">
+                        </div>
+                        <div class="form-group">
+                            <label>Description:</label>
+                            <textarea id="update-todo-description" placeholder="Acheter du pain, du lait..."></textarea>
+                        </div>
+                        <button class="btn" onclick="executeUpdateTodo()">Modifier TODO</button>
+                    </div>
+                </div>
+
+                <!-- Formulaire pour supprimer un todo -->
+                <div id="todos-delete-form" class="endpoint-form hidden">
+                    <div class="endpoint-description">
+                        <h3>🗑️ Supprimer un TODO</h3>
+                        <p>Supprimer un TODO existant (nécessite une authentification)</p>
+                    </div>
+                    <div class="form-section">
+                        <div class="form-group">
+                            <label>ID du TODO:</label>
+                            <input type="number" id="delete-todo-id" placeholder="1">
+                        </div>
+                        <button class="btn btn-danger" onclick="executeDeleteTodo()">Supprimer TODO</button>
+                    </div>
+                </div>
+
+                <!-- Actions - Toutes les actions -->
+                <div id="actions-all-form" class="endpoint-form hidden">
+                    <div class="endpoint-description">
+                        <h3>💰 Toutes les actions/dépenses</h3>
+                        <p>Récupérer la liste de toutes les actions</p>
+                    </div>
+                    <div class="form-section">
+                        <button class="btn" onclick="executeGetAllActions()">Récupérer toutes les actions</button>
+                    </div>
+                </div>
+
+                <!-- Actions par utilisateur -->
+                <div id="actions-by-user-form" class="endpoint-form hidden">
+                    <div class="endpoint-description">
+                        <h3>👤 Actions par utilisateur</h3>
+                        <p>Récupérer les actions d'un utilisateur spécifique</p>
+                    </div>
+                    <div class="form-section">
+                        <div class="form-group">
+                            <label>ID Utilisateur:</label>
+                            <input type="number" id="actions-user-id" placeholder="1">
+                        </div>
+                        <button class="btn" onclick="executeGetActionsByUser()">Récupérer actions</button>
+                    </div>
+                </div>
+
+                <!-- Créer une action -->
+                <div id="actions-create-form" class="endpoint-form hidden">
+                    <div class="endpoint-description">
+                        <h3>➕ Créer une action/dépense</h3>
+                        <p>Ajouter une nouvelle action (nécessite une authentification)</p>
+                    </div>
+                    <div class="form-section">
+                        <div class="form-group">
+                            <label>Description:</label>
+                            <input type="text" id="action-description" placeholder="Achat de courses">
+                        </div>
+                        <div class="form-group">
+                            <label>Montant:</label>
+                            <input type="number" step="0.01" id="action-montant" placeholder="25.50">
+                        </div>
+                        <div class="form-group">
+                            <label>Date de transaction:</label>
+                            <input type="datetime-local" id="action-date">
+                            <button type="button" class="btn" style="margin-top: 5px; padding: 5px 10px; font-size: 12px;" onclick="fillCurrentDate('action-date')">Maintenant</button>
+                        </div>
+                        <div class="form-group">
+                            <label>ID Utilisateur:</label>
+                            <input type="number" id="action-user-id-create" placeholder="1">
+                        </div>
+                        <div class="form-group">
+                            <label>ID Catégorie:</label>
+                            <input type="number" id="action-categorie-id" placeholder="1">
+                        </div>
+                        <div class="form-group">
+                            <label>Icône (optionnel):</label>
+                            <input type="text" id="action-icon" placeholder="🛍️">
+                        </div>
+                        <button class="btn btn-success" onclick="executeCreateAction()">Créer action</button>
+                    </div>
+                </div>
+
+                <!-- Modifier une action -->
+                <div id="actions-update-form" class="endpoint-form hidden">
+                    <div class="endpoint-description">
+                        <h3>✏️ Modifier une action</h3>
+                        <p>Mettre à jour une action existante (nécessite une authentification)</p>
+                    </div>
+                    <div class="form-section">
+                        <div class="form-group">
+                            <label>ID de l'action:</label>
+                            <input type="number" id="update-action-id" placeholder="1">
+                        </div>
+                        <div class="form-group">
+                            <label>Description:</label>
+                            <input type="text" id="update-action-description" placeholder="Achat de courses">
+                        </div>
+                        <div class="form-group">
+                            <label>Montant:</label>
+                            <input type="number" step="0.01" id="update-action-montant" placeholder="25.50">
+                        </div>
+                        <div class="form-group">
+                            <label>Date de transaction:</label>
+                            <input type="datetime-local" id="update-action-date">
+                            <button type="button" class="btn" style="margin-top: 5px; padding: 5px 10px; font-size: 12px;" onclick="fillCurrentDate('update-action-date')">Maintenant</button>
+                        </div>
+                        <div class="form-group">
+                            <label>Icône (optionnel):</label>
+                            <input type="text" id="update-action-icon" placeholder="🛍️">
+                        </div>
+                        <button class="btn" onclick="executeUpdateAction()">Modifier action</button>
+                    </div>
+                </div>
+
+                <!-- Supprimer une action -->
+                <div id="actions-delete-form" class="endpoint-form hidden">
+                    <div class="endpoint-description">
+                        <h3>🗑️ Supprimer une action</h3>
+                        <p>Supprimer une action existante (nécessite une authentification)</p>
+                    </div>
+                    <div class="form-section">
+                        <div class="form-group">
+                            <label>ID de l'action:</label>
+                            <input type="number" id="delete-action-id" placeholder="1">
+                        </div>
+                        <button class="btn btn-danger" onclick="executeDeleteAction()">Supprimer action</button>
+                    </div>
+                </div>
+
+                <!-- Somme par catégorie -->
+                <div id="actions-sum-by-category-form" class="endpoint-form hidden">
+                    <div class="endpoint-description">
+                        <h3>📊 Somme par catégorie</h3>
+                        <p>Récupérer la somme des dépenses par catégorie pour un utilisateur/mois/année</p>
+                    </div>
+                    <div class="form-section">
+                        <div class="form-group">
+                            <label>ID Utilisateur:</label>
+                            <input type="number" id="sum-category-user-id" placeholder="1">
+                        </div>
+                        <div class="form-group">
+                            <label>Mois (1-12):</label>
+                            <input type="number" min="1" max="12" id="sum-category-month" placeholder="12">
+                        </div>
+                        <div class="form-group">
+                            <label>Année:</label>
+                            <input type="number" id="sum-category-year" placeholder="2024">
+                        </div>
+                        <button class="btn" onclick="executeGetSumByCategory()">Récupérer sommes</button>
+                        <button class="btn" onclick="fillCurrentMonthYear()" style="margin-left: 10px;">Mois/Année actuels</button>
+                    </div>
+                </div>
+
+                <!-- Somme totale -->
+                <div id="actions-sum-total-form" class="endpoint-form hidden">
+                    <div class="endpoint-description">
+                        <h3>💵 Somme totale</h3>
+                        <p>Récupérer la somme totale des dépenses pour un utilisateur/mois/année</p>
+                    </div>
+                    <div class="form-section">
+                        <div class="form-group">
+                            <label>ID Utilisateur:</label>
+                            <input type="number" id="sum-total-user-id" placeholder="1">
+                        </div>
+                        <div class="form-group">
+                            <label>Mois (1-12):</label>
+                            <input type="number" min="1" max="12" id="sum-total-month" placeholder="12">
+                        </div>
+                        <div class="form-group">
+                            <label>Année:</label>
+                            <input type="number" id="sum-total-year" placeholder="2024">
+                        </div>
+                        <button class="btn" onclick="executeGetSumTotal()">Récupérer somme totale</button>
+                        <button class="btn" onclick="fillCurrentMonthYear()" style="margin-left: 10px;">Mois/Année actuels</button>
+                    </div>
+                </div>
+
+                <!-- Export Excel -->
+                <div id="actions-export-form" class="endpoint-form hidden">
+                    <div class="endpoint-description">
+                        <h3>📄 Export Excel</h3>
+                        <p>Exporter les actions d'un utilisateur au format Excel</p>
+                    </div>
+                    <div class="form-section">
+                        <div class="form-group">
+                            <label>ID Utilisateur:</label>
+                            <input type="number" id="export-user-id" placeholder="1">
+                        </div>
+                        <button class="btn btn-success" onclick="executeExportExcel()">Télécharger Excel</button>
+                    </div>
+                </div>
+
+                <!-- Générer PDF -->
+                <div id="actions-pdf-form" class="endpoint-form hidden">
+                    <div class="endpoint-description">
+                        <h3>📄 Générer PDF</h3>
+                        <p>Générer un rapport PDF des actions d'un utilisateur</p>
+                    </div>
+                    <div class="form-section">
+                        <div class="form-group">
+                            <label>ID Utilisateur:</label>
+                            <input type="number" id="pdf-user-id" placeholder="1">
+                        </div>
+                        <button class="btn btn-success" onclick="executeGeneratePDF()">Télécharger PDF</button>
+                    </div>
+                </div>
+
+                <!-- Créer une transaction -->
+                <div id="transactions-create-form" class="endpoint-form hidden">
+                    <div class="endpoint-description">
+                        <h3>🏦 Créer une transaction</h3>
+                        <p>Ajouter une nouvelle transaction (nécessite une authentification)</p>
+                    </div>
+                    <div class="form-section">
+                        <div class="form-group">
+                            <label>Description:</label>
+                            <input type="text" id="transaction-description" placeholder="Achat en ligne">
+                        </div>
+                        <div class="form-group">
+                            <label>Montant:</label>
+                            <input type="number" step="0.01" id="transaction-amount" placeholder="125.75">
+                        </div>
+                        <div class="form-group">
+                            <label>Date (optionnel):</label>
+                            <input type="datetime-local" id="transaction-date">
+                            <button type="button" class="btn" style="margin-top: 5px; padding: 5px 10px; font-size: 12px;" onclick="fillCurrentDate('transaction-date')">Maintenant</button>
+                        </div>
+                        <div class="form-group">
+                            <label>ID Enveloppe:</label>
+                            <input type="text" id="transaction-envelope-id" placeholder="envelope-uuid">
+                        </div>
+                        <button class="btn btn-success" onclick="executeCreateTransaction()">Créer transaction</button>
+                    </div>
+                </div>
+
+                <!-- Modifier une transaction -->
+                <div id="transactions-update-form" class="endpoint-form hidden">
+                    <div class="endpoint-description">
+                        <h3>✏️ Modifier une transaction</h3>
+                        <p>Mettre à jour une transaction existante (nécessite une authentification)</p>
+                    </div>
+                    <div class="form-section">
+                        <div class="form-group">
+                            <label>ID de la transaction:</label>
+                            <input type="text" id="update-transaction-id" placeholder="transaction-uuid">
+                        </div>
+                        <div class="form-group">
+                            <label>Description (optionnel):</label>
+                            <input type="text" id="update-transaction-description" placeholder="Achat en ligne">
+                        </div>
+                        <div class="form-group">
+                            <label>Montant (optionnel):</label>
+                            <input type="number" step="0.01" id="update-transaction-amount" placeholder="125.75">
+                        </div>
+                        <div class="form-group">
+                            <label>Date (optionnel):</label>
+                            <input type="datetime-local" id="update-transaction-date">
+                            <button type="button" class="btn" style="margin-top: 5px; padding: 5px 10px; font-size: 12px;" onclick="fillCurrentDate('update-transaction-date')">Maintenant</button>
+                        </div>
+                        <button class="btn" onclick="executeUpdateTransaction()">Modifier transaction</button>
+                    </div>
+                </div>
+
+                <!-- Supprimer une transaction -->
+                <div id="transactions-delete-form" class="endpoint-form hidden">
+                    <div class="endpoint-description">
+                        <h3>🗑️ Supprimer une transaction</h3>
+                        <p>Supprimer une transaction existante (nécessite une authentification)</p>
+                    </div>
+                    <div class="form-section">
+                        <div class="form-group">
+                            <label>ID de la transaction:</label>
+                            <input type="text" id="delete-transaction-id" placeholder="transaction-uuid">
+                        </div>
+                        <button class="btn btn-danger" onclick="executeDeleteTransaction()">Supprimer transaction</button>
+                    </div>
+                </div>
+
+                <!-- Transactions par enveloppe -->
+                <div id="transactions-by-envelope-form" class="endpoint-form hidden">
+                    <div class="endpoint-description">
+                        <h3>📦 Transactions par enveloppe</h3>
+                        <p>Récupérer les transactions d'une enveloppe spécifique</p>
+                    </div>
+                    <div class="form-section">
+                        <div class="form-group">
+                            <label>ID Enveloppe:</label>
+                            <input type="text" id="envelope-id" placeholder="envelope-uuid">
+                        </div>
+                        <button class="btn" onclick="executeGetTransactionsByEnvelope()">Récupérer transactions</button>
+                    </div>
+                </div>
+
+                <!-- Swagger -->
+                <div id="swagger-form" class="endpoint-form hidden">
+                    <div class="endpoint-description">
+                        <h3>📚 Documentation Swagger</h3>
+                        <p>Accéder à la documentation automatique de l'API</p>
+                    </div>
+                    <div class="form-section">
+                        <button class="btn" onclick="openSwagger()">Ouvrir Swagger UI</button>
+                    </div>
+                </div>
+
+                <!-- Zone de réponse -->
+                <div class="response-section">
+                    <h3>📤 Réponse de l'API <span id="status-indicator"></span></h3>
+                    <div class="response-content" id="response-content">
+Sélectionnez un endpoint dans la sidebar pour commencer à tester l'API.
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE_URL = 'http://localhost:3004';
+        let currentToken = localStorage.getItem('jwt_token') || null;
+
+        // Mise à jour de l'affichage du token
+        function updateTokenDisplay() {
+            const tokenDisplay = document.getElementById('token-display');
+            if (currentToken) {
+                tokenDisplay.textContent = currentToken.substring(0, 20) + '...';
+                tokenDisplay.className = 'status-success';
+            } else {
+                tokenDisplay.textContent = 'Non connecté';
+                tokenDisplay.className = 'status-error';
+            }
+        }
+
+        // Effacer le token
+        function clearToken() {
+            currentToken = null;
+            localStorage.removeItem('jwt_token');
+            updateTokenDisplay();
+            showResponse('Token effacé', 'info');
+        }
+
+        // Sélectionner un endpoint
+        function selectEndpoint(endpoint) {
+            // Masquer tous les formulaires
+            document.querySelectorAll('.endpoint-form').forEach(form => {
+                form.classList.add('hidden');
+            });
+
+            // Retirer la classe active de tous les boutons
+            document.querySelectorAll('.endpoint-item').forEach(btn => {
+                btn.classList.remove('active');
+            });
+
+            // Afficher le formulaire correspondant
+            const form = document.getElementById(endpoint + '-form');
+            if (form) {
+                form.classList.remove('hidden');
+            }
+
+            // Ajouter la classe active au bouton cliqué
+            event.target.classList.add('active');
+        }
+
+        // Afficher la réponse
+        function showResponse(data, type = 'success') {
+            const responseContent = document.getElementById('response-content');
+            const statusIndicator = document.getElementById('status-indicator');
+
+            responseContent.textContent = typeof data === 'object' ? JSON.stringify(data, null, 2) : data;
+
+            statusIndicator.className = `status-indicator status-${type}`;
+            statusIndicator.textContent = type === 'success' ? 'Succès' : type === 'error' ? 'Erreur' : 'Info';
+        }
+
+        // Fonction générique pour les appels API
+        async function apiCall(url, method = 'GET', data = null, useToken = false) {
+            try {
+                const options = {
+                    method: method,
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                };
+
+                if (data) {
+                    if (useToken && currentToken) {
+                        data.jwt = currentToken;
+                    }
+                    options.body = JSON.stringify(data);
+                }
+
+                const response = await fetch(API_BASE_URL + url, options);
+                const result = await response.text();
+
+                let parsedResult;
+                try {
+                    parsedResult = JSON.parse(result);
+                } catch {
+                    parsedResult = result;
+                }
+
+                if (response.ok) {
+                    showResponse(parsedResult, 'success');
+                    return parsedResult;
+                } else {
+                    showResponse(`Erreur ${response.status}: ${parsedResult}`, 'error');
+                    return null;
+                }
+            } catch (error) {
+                showResponse(`Erreur de connexion: ${error.message}`, 'error');
+                return null;
+            }
+        }
+
+        // Fonctions pour les endpoints d'authentification
+        async function executeSignup() {
+            const data = {
+                email: document.getElementById('signup-email').value,
+                prenom: document.getElementById('signup-prenom').value,
+                nom: document.getElementById('signup-nom').value,
+                password: document.getElementById('signup-password').value
+            };
+            await apiCall('/connection/signup', 'POST', data);
+        }
+
+        async function executeLogin() {
+            const data = {
+                email: document.getElementById('login-email').value,
+                password: document.getElementById('login-password').value
+            };
+            const result = await apiCall('/connection/login', 'POST', data);
+            if (result) {
+                // Vérifier si on a reçu un token (il devrait être dans les cookies)
+                showResponse('Connexion réussie! Vérifiez les cookies pour le token JWT.', 'success');
+                // Pour cet exemple, on peut demander à l'utilisateur de copier le token depuis les dev tools
+            }
+        }
+
+        async function executeGetUser() {
+            if (!currentToken) {
+                showResponse('Aucun token JWT disponible. Connectez-vous d\'abord.', 'error');
+                return;
+            }
+            await apiCall('/connection/user', 'POST', {}, true);
+        }
+
+        async function executeLogout() {
+            const result = await apiCall('/connection/logout', 'POST');
+            if (result) {
+                clearToken();
+            }
+        }
+
+        async function executeDecrypt() {
+            const token = document.getElementById('decrypt-token').value;
+            if (!token) {
+                showResponse('Veuillez entrer un token JWT', 'error');
+                return;
+            }
+            await apiCall(`/connection/decrypt/${encodeURIComponent(token)}`, 'GET');
+        }
+
+        function fillCurrentToken() {
+            if (currentToken) {
+                document.getElementById('decrypt-token').value = currentToken;
+            } else {
+                showResponse('Aucun token JWT disponible', 'error');
+            }
+        }
+
+        // Fonctions pour les endpoints TODO
+        async function executeGetAllTodos() {
+            await apiCall('/todos', 'GET');
+        }
+
+        async function executeGetTodosByUser() {
+            const userId = document.getElementById('user-id').value;
+            if (!userId) {
+                showResponse('Veuillez entrer un ID utilisateur', 'error');
+                return;
+            }
+            await apiCall(`/todos/byuser/${userId}`, 'GET');
+        }
+
+        async function executeCreateTodo() {
+            if (!currentToken) {
+                showResponse('Aucun token JWT disponible. Connectez-vous d\'abord.', 'error');
+                return;
+            }
+            const data = {
+                title: document.getElementById('todo-title').value,
+                description: document.getElementById('todo-description').value,
+                userId: document.getElementById('todo-user-id').value
+            };
+            await apiCall('/todos', 'POST', data, true);
+        }
+
+        async function executeUpdateTodo() {
+            if (!currentToken) {
+                showResponse('Aucun token JWT disponible. Connectez-vous d\'abord.', 'error');
+                return;
+            }
+            const todoId = document.getElementById('update-todo-id').value;
+            const data = {
+                title: document.getElementById('update-todo-title').value,
+                description: document.getElementById('update-todo-description').value
+            };
+            await apiCall(`/todos/${todoId}`, 'PUT', data, true);
+        }
+
+        async function executeDeleteTodo() {
+            if (!currentToken) {
+                showResponse('Aucun token JWT disponible. Connectez-vous d\'abord.', 'error');
+                return;
+            }
+            const todoId = document.getElementById('delete-todo-id').value;
+            if (!todoId) {
+                showResponse('Veuillez entrer un ID de TODO', 'error');
+                return;
+            }
+            await apiCall(`/todos/${todoId}`, 'DELETE', {}, true);
+        }
+
+        // Fonctions pour les endpoints Actions
+        async function executeGetAllActions() {
+            await apiCall('/action', 'GET');
+        }
+
+        async function executeGetActionsByUser() {
+            const userId = document.getElementById('actions-user-id').value;
+            if (!userId) {
+                showResponse('Veuillez entrer un ID utilisateur', 'error');
+                return;
+            }
+            await apiCall(`/action/byuser/${userId}`, 'GET');
+        }
+
+        async function executeCreateAction() {
+            if (!currentToken) {
+                showResponse('Aucun token JWT disponible. Connectez-vous d\'abord.', 'error');
+                return;
+            }
+            const data = {
+                description: document.getElementById('action-description').value,
+                montant: parseFloat(document.getElementById('action-montant').value),
+                dateTransaction: document.getElementById('action-date').value ? new Date(document.getElementById('action-date').value) : new Date(),
+                user: { id: parseInt(document.getElementById('action-user-id-create').value) },
+                categorie: { id: parseInt(document.getElementById('action-categorie-id').value) },
+                iconName: document.getElementById('action-icon').value || null
+            };
+
+            if (!data.description || !data.montant || !data.user.id || !data.categorie.id) {
+                showResponse('Veuillez remplir tous les champs obligatoires', 'error');
+                return;
+            }
+
+            await apiCall('/action', 'POST', data, true);
+        }
+
+        async function executeUpdateAction() {
+            if (!currentToken) {
+                showResponse('Aucun token JWT disponible. Connectez-vous d\'abord.', 'error');
+                return;
+            }
+            const actionId = document.getElementById('update-action-id').value;
+            if (!actionId) {
+                showResponse('Veuillez entrer un ID d\'action', 'error');
+                return;
+            }
+
+            const data = {
+                description: document.getElementById('update-action-description').value,
+                montant: document.getElementById('update-action-montant').value ? parseFloat(document.getElementById('update-action-montant').value) : undefined,
+                dateTransaction: document.getElementById('update-action-date').value ? new Date(document.getElementById('update-action-date').value) : undefined,
+                iconName: document.getElementById('update-action-icon').value || undefined
+            };
+
+            // Nettoyer les valeurs undefined
+            Object.keys(data).forEach(key => data[key] === undefined && delete data[key]);
+
+            await apiCall(`/action/${actionId}`, 'PUT', data, true);
+        }
+
+        async function executeDeleteAction() {
+            if (!currentToken) {
+                showResponse('Aucun token JWT disponible. Connectez-vous d\'abord.', 'error');
+                return;
+            }
+            const actionId = document.getElementById('delete-action-id').value;
+            if (!actionId) {
+                showResponse('Veuillez entrer un ID d\'action', 'error');
+                return;
+            }
+            await apiCall(`/action/${actionId}`, 'DELETE', {}, true);
+        }
+
+        async function executeGetSumByCategory() {
+            const userId = document.getElementById('sum-category-user-id').value;
+            const month = document.getElementById('sum-category-month').value;
+            const year = document.getElementById('sum-category-year').value;
+
+            if (!userId || !month || !year) {
+                showResponse('Veuillez remplir tous les champs', 'error');
+                return;
+            }
+
+            await apiCall(`/action/categorie/sum/byuser/${userId}/${month}/${year}`, 'GET');
+        }
+
+        async function executeGetSumTotal() {
+            const userId = document.getElementById('sum-total-user-id').value;
+            const month = document.getElementById('sum-total-month').value;
+            const year = document.getElementById('sum-total-year').value;
+
+            if (!userId || !month || !year) {
+                showResponse('Veuillez remplir tous les champs', 'error');
+                return;
+            }
+
+            await apiCall(`/action/montant/sum/byuser/${userId}/${month}/${year}`, 'GET');
+        }
+
+        async function executeExportExcel() {
+            const userId = document.getElementById('export-user-id').value;
+            if (!userId) {
+                showResponse('Veuillez entrer un ID utilisateur', 'error');
+                return;
+            }
+
+            try {
+                const response = await fetch(API_BASE_URL + `/action/export/${userId}`);
+                if (response.ok) {
+                    const blob = await response.blob();
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.style.display = 'none';
+                    a.href = url;
+                    a.download = `actions_user_${userId}.xlsx`;
+                    document.body.appendChild(a);
+                    a.click();
+                    window.URL.revokeObjectURL(url);
+                    showResponse('Fichier Excel téléchargé avec succès', 'success');
+                } else {
+                    showResponse('Erreur lors du téléchargement', 'error');
+                }
+            } catch (error) {
+                showResponse(`Erreur: ${error.message}`, 'error');
+            }
+        }
+
+        async function executeGeneratePDF() {
+            const userId = document.getElementById('pdf-user-id').value;
+            if (!userId) {
+                showResponse('Veuillez entrer un ID utilisateur', 'error');
+                return;
+            }
+
+            try {
+                const response = await fetch(API_BASE_URL + `/action/generate-pdf/${userId}`);
+                if (response.ok) {
+                    const blob = await response.blob();
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.style.display = 'none';
+                    a.href = url;
+                    a.download = `rapport_actions_user_${userId}.pdf`;
+                    document.body.appendChild(a);
+                    a.click();
+                    window.URL.revokeObjectURL(url);
+                    showResponse('Fichier PDF téléchargé avec succès', 'success');
+                } else {
+                    showResponse('Erreur lors du téléchargement', 'error');
+                }
+            } catch (error) {
+                showResponse(`Erreur: ${error.message}`, 'error');
+            }
+        }
+
+        // Fonctions pour les endpoints Transactions
+        async function executeCreateTransaction() {
+            if (!currentToken) {
+                showResponse('Aucun token JWT disponible. Connectez-vous d\'abord.', 'error');
+                return;
+            }
+
+            const data = {
+                description: document.getElementById('transaction-description').value,
+                amount: parseFloat(document.getElementById('transaction-amount').value),
+                date: document.getElementById('transaction-date').value ? new Date(document.getElementById('transaction-date').value) : undefined,
+                envelopeId: document.getElementById('transaction-envelope-id').value
+            };
+
+            if (!data.description || !data.amount || !data.envelopeId) {
+                showResponse('Veuillez remplir tous les champs obligatoires', 'error');
+                return;
+            }
+
+            await apiCall('/transactions', 'POST', data, true);
+        }
+
+        async function executeUpdateTransaction() {
+            if (!currentToken) {
+                showResponse('Aucun token JWT disponible. Connectez-vous d\'abord.', 'error');
+                return;
+            }
+
+            const transactionId = document.getElementById('update-transaction-id').value;
+            if (!transactionId) {
+                showResponse('Veuillez entrer un ID de transaction', 'error');
+                return;
+            }
+
+            const data = {
+                description: document.getElementById('update-transaction-description').value || undefined,
+                amount: document.getElementById('update-transaction-amount').value ? parseFloat(document.getElementById('update-transaction-amount').value) : undefined,
+                date: document.getElementById('update-transaction-date').value ? new Date(document.getElementById('update-transaction-date').value) : undefined
+            };
+
+            // Nettoyer les valeurs undefined
+            Object.keys(data).forEach(key => data[key] === undefined && delete data[key]);
+
+            await apiCall(`/transactions/${transactionId}`, 'PATCH', data, true);
+        }
+
+        async function executeDeleteTransaction() {
+            if (!currentToken) {
+                showResponse('Aucun token JWT disponible. Connectez-vous d\'abord.', 'error');
+                return;
+            }
+
+            const transactionId = document.getElementById('delete-transaction-id').value;
+            if (!transactionId) {
+                showResponse('Veuillez entrer un ID de transaction', 'error');
+                return;
+            }
+
+            await apiCall(`/transactions/${transactionId}`, 'DELETE', {}, true);
+        }
+
+        async function executeGetTransactionsByEnvelope() {
+            const envelopeId = document.getElementById('envelope-id').value;
+            if (!envelopeId) {
+                showResponse('Veuillez entrer un ID d\'enveloppe', 'error');
+                return;
+            }
+
+            await apiCall(`/transactions/envelope/${envelopeId}`, 'GET');
+        }
+
+        function openSwagger() {
+            window.open(API_BASE_URL + '/api', '_blank');
+        }
+
+        // Initialisation
+        updateTokenDisplay();
+
+        // Sélectionner automatiquement le premier endpoint
+        document.addEventListener('DOMContentLoaded', function() {
+            selectEndpoint('login');
+        });
+
+        // Fonction utilitaire pour remplir automatiquement la date courante
+        function fillCurrentDate(fieldId) {
+            const now = new Date();
+            const isoString = now.toISOString().slice(0, 16); // Format YYYY-MM-DDTHH:MM
+            document.getElementById(fieldId).value = isoString;
+        }
+
+        // Fonction utilitaire pour remplir automatiquement l'année et le mois courants
+        function fillCurrentMonthYear() {
+            const now = new Date();
+            const currentMonth = now.getMonth() + 1; // getMonth() retourne 0-11
+            const currentYear = now.getFullYear();
+
+            // Remplir tous les champs de mois et année
+            const monthFields = ['sum-category-month', 'sum-total-month'];
+            const yearFields = ['sum-category-year', 'sum-total-year'];
+
+            monthFields.forEach(fieldId => {
+                const field = document.getElementById(fieldId);
+                if (field && !field.value) field.value = currentMonth;
+            });
+
+            yearFields.forEach(fieldId => {
+                const field = document.getElementById(fieldId);
+                if (field && !field.value) field.value = currentYear;
+            });
+        }
+
+        // Fonction pour sauvegarder le token manuellement
+        function saveToken() {
+            const token = prompt('Entrez votre token JWT:');
+            if (token) {
+                currentToken = token;
+                localStorage.setItem('jwt_token', token);
+                updateTokenDisplay();
+                showResponse('Token sauvegardé', 'success');
+            }
+        }
+
+        // Ajouter un bouton pour sauvegarder le token manuellement
+        document.querySelector('.token-status').insertAdjacentHTML('beforeend',
+            '<button class="btn" onclick="saveToken()" style="margin-left: 10px; padding: 5px 10px; font-size: 12px;">Saisir Token</button>'
+        );
+    </script>
+</body>
+</html>
