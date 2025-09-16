@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard Admin - Gestion des Utilisateurs</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: #333;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .header {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 30px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+
+        .header h1 {
+            color: #5a67d8;
+            margin-bottom: 10px;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .stat-card {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            text-align: center;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            transition: transform 0.3s ease;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-5px);
+        }
+
+        .stat-number {
+            font-size: 2em;
+            font-weight: bold;
+            color: #5a67d8;
+            margin-bottom: 10px;
+        }
+
+        .users-section {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+
+        .users-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+
+        .users-table th,
+        .users-table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+
+        .users-table th {
+            background-color: #f8f9fa;
+            font-weight: 600;
+            color: #5a67d8;
+        }
+
+        .badge {
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 0.8em;
+            font-weight: 500;
+        }
+
+        .badge.verified {
+            background-color: #d4edda;
+            color: #155724;
+        }
+
+        .badge.unverified {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
+
+        .btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 0.9em;
+            transition: background-color 0.3s ease;
+        }
+
+        .btn-danger {
+            background-color: #dc3545;
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background-color: #c82333;
+        }
+
+        .btn-info {
+            background-color: #17a2b8;
+            color: white;
+        }
+
+        .btn-info:hover {
+            background-color: #138496;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 20px;
+            color: #666;
+        }
+
+        .error {
+            background-color: #f8d7da;
+            color: #721c24;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 20px 0;
+        }
+
+        .success {
+            background-color: #d4edda;
+            color: #155724;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 20px 0;
+        }
+
+        .refresh-btn {
+            background-color: #28a745;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-bottom: 20px;
+        }
+
+        .refresh-btn:hover {
+            background-color: #218838;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Dashboard Administrateur</h1>
+            <p>Gestion des utilisateurs de l'application</p>
+        </div>
+
+        <div id="error-message" class="error" style="display: none;"></div>
+        <div id="success-message" class="success" style="display: none;"></div>
+
+        <div class="stats-grid" id="stats-grid">
+            <div class="loading">Chargement des statistiques...</div>
+        </div>
+
+        <div class="users-section">
+            <h2>Gestion des Utilisateurs</h2>
+            <button class="refresh-btn" onclick="loadData()">Actualiser</button>
+
+            <div id="users-content">
+                <div class="loading">Chargement des utilisateurs...</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:3004';
+
+        async function makeRequest(endpoint, options = {}) {
+            try {
+                const response = await fetch(`${API_BASE}${endpoint}`, {
+                    credentials: 'include',
+                    ...options
+                });
+
+                if (!response.ok) {
+                    if (response.status === 401) {
+                        throw new Error('Accès non autorisé. Vous devez être connecté en tant qu\'administrateur.');
+                    }
+                    throw new Error(`Erreur ${response.status}: ${response.statusText}`);
+                }
+
+                return await response.json();
+            } catch (error) {
+                throw error;
+            }
+        }
+
+        async function loadStats() {
+            try {
+                const data = await makeRequest('/admin/dashboard');
+
+                const statsGrid = document.getElementById('stats-grid');
+                statsGrid.innerHTML = `
+                    <div class="stat-card">
+                        <div class="stat-number">${data.totalUsers}</div>
+                        <div>Utilisateurs Total</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number">${data.totalRevenues}</div>
+                        <div>Revenus</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number">${data.totalTransactions}</div>
+                        <div>Transactions</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number">${data.totalEnvelopes}</div>
+                        <div>Enveloppes</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number">${data.totalTickets}</div>
+                        <div>Tickets</div>
+                    </div>
+                `;
+            } catch (error) {
+                document.getElementById('stats-grid').innerHTML = `
+                    <div class="error">Erreur lors du chargement des statistiques: ${error.message}</div>
+                `;
+            }
+        }
+
+        async function loadUsers() {
+            try {
+                const users = await makeRequest('/connection/admin/users');
+
+                const usersContent = document.getElementById('users-content');
+
+                if (users.length === 0) {
+                    usersContent.innerHTML = '<p>Aucun utilisateur trouvé.</p>';
+                    return;
+                }
+
+                usersContent.innerHTML = `
+                    <table class="users-table">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Email</th>
+                                <th>Nom</th>
+                                <th>Prénom</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${users.map(user => `
+                                <tr>
+                                    <td>${user.id}</td>
+                                    <td>${user.email}</td>
+                                    <td>${user.nom || 'N/A'}</td>
+                                    <td>${user.prenom || 'N/A'}</td>
+                                    <td>
+                                        <span class="badge ${user.isEmailVerified ? 'verified' : 'unverified'}">
+                                            ${user.isEmailVerified ? 'Vérifié' : 'Non vérifié'}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <button class="btn btn-info" onclick="viewUser(${user.id})">Voir</button>
+                                        ${user.email !== 'kriss.clotilde@gmail.com' ?
+                                            `<button class="btn btn-danger" onclick="deleteUser(${user.id}, '${user.email}')">Supprimer</button>`
+                                            : ''
+                                        }
+                                    </td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                `;
+            } catch (error) {
+                document.getElementById('users-content').innerHTML = `
+                    <div class="error">Erreur lors du chargement des utilisateurs: ${error.message}</div>
+                `;
+            }
+        }
+
+        async function deleteUser(userId, email) {
+            if (!confirm(`Êtes-vous sûr de vouloir supprimer l'utilisateur ${email} ?`)) {
+                return;
+            }
+
+            try {
+                await makeRequest(`/users/${userId}`, {
+                    method: 'DELETE'
+                });
+
+                showSuccess('Utilisateur supprimé avec succès');
+                loadData();
+            } catch (error) {
+                showError(`Erreur lors de la suppression: ${error.message}`);
+            }
+        }
+
+        async function viewUser(userId) {
+            try {
+                const user = await makeRequest(`/users/${userId}`);
+
+                const userInfo = `
+                    ID: ${user.id}
+                    Email: ${user.email}
+                    Nom: ${user.nom || 'N/A'}
+                    Prénom: ${user.prenom || 'N/A'}
+                    Email vérifié: ${user.isEmailVerified ? 'Oui' : 'Non'}
+                    Nombre de revenus: ${user.revenues?.length || 0}
+                    Nombre d'enveloppes: ${user.envelopes?.length || 0}
+                    Nombre de tickets: ${user.tickets?.length || 0}
+                `;
+
+                alert(userInfo);
+            } catch (error) {
+                showError(`Erreur lors de la récupération des détails: ${error.message}`);
+            }
+        }
+
+        function showError(message) {
+            const errorDiv = document.getElementById('error-message');
+            errorDiv.textContent = message;
+            errorDiv.style.display = 'block';
+            setTimeout(() => {
+                errorDiv.style.display = 'none';
+            }, 5000);
+        }
+
+        function showSuccess(message) {
+            const successDiv = document.getElementById('success-message');
+            successDiv.textContent = message;
+            successDiv.style.display = 'block';
+            setTimeout(() => {
+                successDiv.style.display = 'none';
+            }, 5000);
+        }
+
+        async function loadData() {
+            await Promise.all([loadStats(), loadUsers()]);
+        }
+
+        // Charger les données au démarrage
+        document.addEventListener('DOMContentLoaded', loadData);
+    </script>
+</body>
+</html>

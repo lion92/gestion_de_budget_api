@@ -1,0 +1,30 @@
+version: '3.8'
+
+services:
+  nest-app:
+    build: .
+    ports:
+      - "${PORT:-3004}:3004"
+    environment:
+      - NODE_ENV=production
+    volumes:
+      - ./uploads:/app/uploads
+    restart: unless-stopped
+    depends_on:
+      - mysql
+
+  mysql:
+    image: mysql:8.0
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-rootpassword}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-nestdb}
+      MYSQL_USER: ${MYSQL_USER:-nestuser}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-nestpassword}
+    ports:
+      - "${MYSQL_PORT:-3306}:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    restart: unless-stopped
+
+volumes:
+  mysql_data:
