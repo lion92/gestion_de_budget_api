@@ -4,7 +4,7 @@ services:
   nest-app:
     build: .
     ports:
-      - "${PORT:-3004}:3004"
+      - "${PORT:-3010}:3010"
     environment:
       - NODE_ENV=production
     volumes:
@@ -17,7 +17,7 @@ services:
     image: mysql:8.0
     environment:
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-rootpassword}
-      MYSQL_DATABASE: ${MYSQL_DATABASE:-nestdb}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-crud_nest}
       MYSQL_USER: ${MYSQL_USER:-nestuser}
       MYSQL_PASSWORD: ${MYSQL_PASSWORD:-nestpassword}
     ports:
