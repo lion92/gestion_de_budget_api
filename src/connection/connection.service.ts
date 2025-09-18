@@ -24,33 +24,30 @@ export class ConnectionService {
     private jwtService: JwtService,
   ) {}
 
-  async signup(user: UserDTO, res) {
-    const userCreate = user;
+  async signup(user: UserDTO): Promise<{ jwt: string; user: User }> { // Modified signature
     const hashedPassword = await hash(user.password, 10);
-    user.password = hashedPassword;
-    const jwt = await this.jwtService.signAsync(
-      { id: user.id },
-      { secret: process.env.secret },
-    );
-    // Générer un token de validation par email
 
     const emailVerificationToken = uuidv4();
 
-    // Envoyer l'email de validation
-
     const newUser = this.userRepository.create({
-      email: userCreate.email,
-      nom:userCreate.nom,
-      prenom:userCreate.prenom,
+      email: user.email,
+      nom: user.nom,
+      prenom: user.prenom,
       password: hashedPassword,
       emailVerificationToken,
-      isEmailVerified: false, // Ajouter un champ pour suivre la vérification de l'email
+      isEmailVerified: false,
     });
-    await this.sendVerificationEmail(userCreate.email, emailVerificationToken);
-    res.cookie('jwt', jwt, { httpOnly: true });
-    await this.userRepository
-      .save(newUser)
-      .catch((reason) => console.log(reason));
+
+    const savedUser = await this.userRepository.save(newUser); // Save first to get an ID for JWT
+
+    const jwt = await this.jwtService.signAsync(
+      { id: savedUser.id }, // Use savedUser.id
+      { secret: process.env.secret },
+    );
+
+    await this.sendVerificationEmail(user.email, emailVerificationToken);
+    
+    return { jwt, user: savedUser }; // Return jwt and user
   }
 
   async login(
