@@ -27,12 +27,11 @@ export class ConnectionController {
               private jwtService: JwtService) {
   }
 
-  @Post('signup')
+  @Post('/signup')
   async signup(@Body() user: UserDTO, @Res({ passthrough: true }) res: Response) {
-    await this.connectionService
-      .signup(user, res)
-      .catch((reason) => console.log(reason));
-    return 'ok';
+    const { jwt, user: newUser } = await this.connectionService.signup(user); // Get jwt and user from service
+    res.cookie('jwt', jwt, { httpOnly: true }); // Set cookie in controller
+    return { id: newUser.id, email: newUser.email, nom: newUser.nom, prenom: newUser.prenom, jwt }; // Return relevant user data and jwt
   }
 
   @Post('/login')
@@ -71,7 +70,7 @@ export class ConnectionController {
 
       const user = await qb.execute();
 
-      const { password, ...result } = await user;
+      // const { password, ...result } = await user; // Removed password destructuring
       await console.log(user[0]);
       await console.log('ee');
       return { id: user[0].id, nom: user[0].nom, prenom: user[0].prenom };
