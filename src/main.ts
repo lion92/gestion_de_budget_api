@@ -10,7 +10,7 @@ async function bootstrap() {
   app.use(cookieParser());
   app.enableCors({
     allowedHeaders: '*',
-    origin: '*',
+    origin: process.env.CORS_ORIGIN || 'https://www.krisscode.fr',
     credentials: true,
   });
   const config = new DocumentBuilder()
@@ -21,7 +21,6 @@ async function bootstrap() {
     .build();
   const document = SwaggerModule.createDocument(app, config);
     SwaggerModule.setup('api', app, document);
-  await console.log('ok');
   await app.listen(process.env.PORT || 3010);
 }
 

@@ -16,8 +16,18 @@ import { v4 as uuidv4 } from 'uuid';
 import * as dotenv from 'dotenv';
 import { randomBytes } from 'crypto';  // Ajoute en haut avec tes imports
 dotenv.config();
+const MAX_LOGIN_ATTEMPTS = 5;
+const LOCKOUT_DURATION_MS = 15 * 60 * 1000; // 15 minutes
+
+interface LoginAttempt {
+  count: number;
+  lockedUntil: number | null;
+}
+
 @Injectable()
 export class ConnectionService {
+  private readonly loginAttempts = new Map<string, LoginAttempt>();
+
   constructor(
     @InjectRepository(User)
     private userRepository: Repository<User>,
@@ -38,16 +48,23 @@ export class ConnectionService {
       isEmailVerified: false,
     });
 
-    const savedUser = await this.userRepository.save(newUser); // Save first to get an ID for JWT
+    const savedUser = await this.userRepository.save(newUser);
 
     const jwt = await this.jwtService.signAsync(
-      { id: savedUser.id }, // Use savedUser.id
+      { id: savedUser.id },
       { secret: process.env.secret },
     );
 
     await this.sendVerificationEmail(user.email, emailVerificationToken);
-    
-    return { jwt, user: savedUser }; // Return jwt and user
+
+    return { jwt, user: savedUser };
+  }
+
+  private getAttempt(email: string): LoginAttempt {
+    if (!this.loginAttempts.has(email)) {
+      this.loginAttempts.set(email, { count: 0, lockedUntil: null });
+    }
+    return this.loginAttempts.get(email);
   }
 
   async login(
@@ -56,6 +73,24 @@ export class ConnectionService {
   ): Promise<any> {
     try {
       const { password, email } = user;
+
+      // Vérifier le verrouillage du compte
+      const attempt = this.getAttempt(email);
+      if (attempt.lockedUntil && Date.now() < attempt.lockedUntil) {
+        const remainingMs = attempt.lockedUntil - Date.now();
+        const remainingMin = Math.ceil(remainingMs / 60000);
+        return {
+          status: 429,
+          success: false,
+          message: `Compte temporairement bloqué après ${MAX_LOGIN_ATTEMPTS} tentatives. Réessayez dans ${remainingMin} minute(s).`,
+        };
+      }
+
+      // Réinitialiser le verrou expiré
+      if (attempt.lockedUntil && Date.now() >= attempt.lockedUntil) {
+        attempt.count = 0;
+        attempt.lockedUntil = null;
+      }
 
       // Vérifier si l'email existe
       const userFind = await this.userRepository.findOneBy({ email: email });
@@ -79,10 +114,20 @@ export class ConnectionService {
       // Vérifier le mot de passe
       const passwordValid = await compare(user.password, userFind.password);
       if (!passwordValid) {
+        attempt.count += 1;
+        if (attempt.count >= MAX_LOGIN_ATTEMPTS) {
+          attempt.lockedUntil = Date.now() + LOCKOUT_DURATION_MS;
+          return {
+            status: 429,
+            success: false,
+            message: `Compte bloqué après ${MAX_LOGIN_ATTEMPTS} tentatives échouées. Réessayez dans 15 minutes.`,
+          };
+        }
+        const remaining = MAX_LOGIN_ATTEMPTS - attempt.count;
         return {
           status: 401,
           success: false,
-          message: 'Mot de passe incorrect.'
+          message: `Mot de passe incorrect. Il vous reste ${remaining} tentative(s).`,
         };
       }
 
@@ -100,6 +145,10 @@ export class ConnectionService {
             message: 'Erreur lors de la génération du token JWT.'
           };
         }
+
+        // Connexion réussie : réinitialiser les tentatives
+        attempt.count = 0;
+        attempt.lockedUntil = null;
 
         // Créer le cookie et retourner la réponse
         res.cookie('jwt', jwt, { httpOnly: true });
@@ -147,7 +196,7 @@ export class ConnectionService {
     }
 
     user.isEmailVerified = true;
-    user.emailVerificationToken = token; // Supprimer le token après la vérification
+    user.emailVerificationToken = null; // Supprimer le token après la vérification
 
     await this.userRepository.save(user);
   }
