@@ -15,6 +15,7 @@ import * as nodemailer from 'nodemailer';
 import { v4 as uuidv4 } from 'uuid';
 import * as dotenv from 'dotenv';
 import { randomBytes } from 'crypto';  // Ajoute en haut avec tes imports
+import { OAuth2Client } from 'google-auth-library';
 dotenv.config();
 const MAX_LOGIN_ATTEMPTS = 5;
 const LOCKOUT_DURATION_MS = 15 * 60 * 1000; // 15 minutes
@@ -102,6 +103,15 @@ export class ConnectionService {
         };
       }
 
+      // Vérifier si le compte utilise Google OAuth (pas de mot de passe)
+      if (!userFind.password) {
+        return {
+          status: 401,
+          success: false,
+          message: 'Ce compte utilise la connexion Google. Utilisez "Se connecter avec Google".',
+        };
+      }
+
       // Vérifier si l'email est vérifié
       if (!userFind.isEmailVerified) {
         return {
@@ -151,7 +161,12 @@ export class ConnectionService {
         attempt.lockedUntil = null;
 
         // Créer le cookie et retourner la réponse
-        res.cookie('jwt', jwt, { httpOnly: true });
+        res.cookie('jwt', jwt, {
+          httpOnly: true,
+          secure: process.env.NODE_ENV === 'production',
+          sameSite: 'strict',
+          maxAge: 24 * 60 * 60 * 1000, // 1 jour
+        });
         return {
           status: 200,
           success: true,
@@ -211,7 +226,7 @@ export class ConnectionService {
         pass: process.env.MAIL_PASSWORD
       },
       tls: {
-        rejectUnauthorized: false, // Ignore les erreurs de certificat
+        rejectUnauthorized: process.env.MAIL_REJECT_UNAUTHORIZED !== 'false',
       },
     });
 
@@ -233,7 +248,6 @@ export class ConnectionService {
     if (!user) {
       throw new NotFoundException('Aucun utilisateur trouvé avec cet email');
     }
-    console.log(user)
     const resetToken = randomBytes(32).toString('hex');
     const resetTokenExpire = new Date();
     resetTokenExpire.setHours(resetTokenExpire.getHours() + 1); // 1 heure de validité
@@ -253,7 +267,6 @@ export class ConnectionService {
         resetPasswordExpire: MoreThan(new Date())
       }
     });
-    console.log(user)
     if (!user) {
       throw new BadRequestException('Token invalide ou expiré');
     }
@@ -263,6 +276,73 @@ export class ConnectionService {
     user.resetPasswordExpire = null;
 
     await this.userRepository.save(user);
+  }
+
+  getGoogleAuthUrl(): string {
+    const client = new OAuth2Client(
+      process.env.GOOGLE_CLIENT_ID,
+      process.env.GOOGLE_CLIENT_SECRET,
+      process.env.GOOGLE_CALLBACK_URL,
+    );
+    return client.generateAuthUrl({
+      access_type: 'offline',
+      scope: ['openid', 'email', 'profile'],
+      prompt: 'select_account',
+    });
+  }
+
+  async handleGoogleCallback(code: string): Promise<{ jwt: string; user: User }> {
+    const client = new OAuth2Client(
+      process.env.GOOGLE_CLIENT_ID,
+      process.env.GOOGLE_CLIENT_SECRET,
+      process.env.GOOGLE_CALLBACK_URL,
+    );
+
+    const { tokens } = await client.getToken(code);
+    const ticket = await client.verifyIdToken({
+      idToken: tokens.id_token,
+      audience: process.env.GOOGLE_CLIENT_ID,
+    });
+
+    const payload = ticket.getPayload();
+    const { sub: googleId, email, given_name: prenom, family_name: nom } = payload;
+
+    let user = await this.userRepository.findOne({
+      where: [{ googleId }, { email }],
+    });
+
+    if (user) {
+      let changed = false;
+      if (!user.googleId) {
+        user.googleId = googleId;
+        changed = true;
+      }
+      if (!user.isEmailVerified) {
+        user.isEmailVerified = true;
+        changed = true;
+      }
+      if (changed) {
+        user = await this.userRepository.save(user);
+      }
+    } else {
+      user = await this.userRepository.save(
+        this.userRepository.create({
+          email,
+          googleId,
+          nom: nom || '',
+          prenom: prenom || '',
+          password: null,
+          isEmailVerified: true,
+        }),
+      );
+    }
+
+    const jwt = await this.jwtService.signAsync(
+      { id: user.id },
+      { secret: process.env.secret },
+    );
+
+    return { jwt, user };
   }
 
   async sendResetPasswordEmail(email: string, token: string): Promise<{ success: boolean; message: string }> {
@@ -275,7 +355,7 @@ export class ConnectionService {
         pass: process.env.MAIL_PASSWORD
       },
       tls: {
-        rejectUnauthorized: false,
+        rejectUnauthorized: process.env.MAIL_REJECT_UNAUTHORIZED !== 'false',
       },
     });
 

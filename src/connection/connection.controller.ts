@@ -50,6 +50,10 @@ export class ConnectionController {
     if (!data) {
       throw new UnauthorizedException();
     }
+    // Vérification IDOR : l'utilisateur ne peut modifier que son propre compte
+    if (String(data.id) !== String(id)) {
+      throw new UnauthorizedException('Accès refusé');
+    }
     let str = await this.connectionService.update(id, user);
     return str;
   }
@@ -57,25 +61,21 @@ export class ConnectionController {
   @Post('user')
   async user(@Body() jwt: { jwt: string }) {
     try {
-      await console.log(jwt);
       const data = await this.jwtService.verifyAsync(jwt.jwt, { secret: process.env.secret });
-      await console.log(data);
       if (!data) {
         throw new UnauthorizedException();
       }
-      let qb = await this.userRepository.createQueryBuilder('User');
-      await qb.select('id, nom, prenom');
-      await qb.where({ id: data.id });
-      await console.log(qb.getSql());
+      const qb = this.userRepository.createQueryBuilder('User');
+      qb.select(['User.id', 'User.nom', 'User.prenom']);
+      qb.where({ id: data.id });
 
-      const user = await qb.execute();
+      const user = await qb.getOne();
 
-      // const { password, ...result } = await user; // Removed password destructuring
-      await console.log(user[0]);
-      await console.log('ee');
-      return { id: user[0].id, nom: user[0].nom, prenom: user[0].prenom };
+      if (!user) {
+        throw new UnauthorizedException();
+      }
+      return { id: user.id, nom: user.nom, prenom: user.prenom };
     } catch (e) {
-      console.log(e);
       throw new UnauthorizedException();
     }
   }
@@ -117,5 +117,31 @@ export class ConnectionController {
   @Post('reset-password')
   resetPassword(@Body() body: { token: string, newPassword: string }) {
     return this.connectionService.resetPassword(body.token, body.newPassword);
+  }
+
+  @Get('google')
+  async googleAuth(@Res() res: Response) {
+    return res.redirect(this.connectionService.getGoogleAuthUrl());
+  }
+
+  @Get('google/callback')
+  async googleCallback(
+    @Query('code') code: string,
+    @Query('error') error: string,
+    @Res() res: Response,
+  ) {
+    if (error || !code) {
+      return res.redirect(`${process.env.FRONTEND_URL}/login?error=google_denied`);
+    }
+    try {
+      const { jwt, user } = await this.connectionService.handleGoogleCallback(code);
+      res.cookie('jwt', jwt, { httpOnly: true, secure: true, sameSite: 'strict', maxAge: 86400000 });
+      return res.redirect(
+        `${process.env.FRONTEND_URL}?jwt=${jwt}&id=${user.id}&email=${encodeURIComponent(user.email)}&nom=${encodeURIComponent(user.nom)}&prenom=${encodeURIComponent(user.prenom)}`,
+      );
+    } catch (e) {
+      console.error('Google OAuth error:', e);
+      return res.redirect(`${process.env.FRONTEND_URL}/login?error=google_failed`);
+    }
   }
 }

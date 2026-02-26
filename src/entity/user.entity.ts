@@ -7,8 +7,11 @@ import { Ticket } from './ticket.entity';
 export class User {
   @PrimaryGeneratedColumn()
   id: number;
-  @Column()
-  password: string;
+  @Column({ nullable: true })
+  password: string | null;
+
+  @Column({ nullable: true, unique: true })
+  googleId?: string;
   @Column({ unique: true })
   email: string;
   @Column()
@@ -36,4 +39,16 @@ export class User {
 
   @Column({ nullable: true })
   resetPasswordExpire: Date;
+
+  @Column({ nullable: true })
+  profilePicture?: string;
+
+  @Column({ nullable: true })
+  phoneNumber?: string;
+
+  @Column({ type: 'date', nullable: true })
+  dateOfBirth?: Date;
+
+  @Column({ nullable: true })
+  address?: string;
 }
