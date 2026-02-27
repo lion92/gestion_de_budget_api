@@ -2,6 +2,7 @@ import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import * as Tesseract from 'tesseract.js';
 import * as sharp from 'sharp';
 import * as fs from 'fs';
+import * as https from 'https';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Ticket } from '../entity/ticket.entity';
@@ -354,7 +355,69 @@ export class TicketService {
     return { total, date, merchant, tva, articles, confidence, cleanedText };
   }
 
-  // ─── OCR ──────────────────────────────────────────────────────────────────
+  // ─── Google Vision OCR ────────────────────────────────────────────────────
+
+  /**
+   * OCR via Google Cloud Vision API (DOCUMENT_TEXT_DETECTION).
+   * Bien supérieur à Tesseract sur les tickets de caisse.
+   * Nécessite GOOGLE_VISION_API_KEY dans .env.
+   * Gratuit : 1 000 requêtes/mois.
+   */
+  private runGoogleVisionOCR(
+    imagePath: string,
+  ): Promise<{ text: string; confidence: number }> {
+    const apiKey = process.env.GOOGLE_VISION_API_KEY;
+    if (!apiKey) throw new Error('GOOGLE_VISION_API_KEY non configurée');
+
+    const base64 = fs.readFileSync(imagePath).toString('base64');
+    const body = JSON.stringify({
+      requests: [
+        {
+          image: { content: base64 },
+          features: [{ type: 'DOCUMENT_TEXT_DETECTION', maxResults: 1 }],
+        },
+      ],
+    });
+
+    return new Promise((resolve, reject) => {
+      const req = https.request(
+        {
+          hostname: 'vision.googleapis.com',
+          path: `/v1/images:annotate?key=${apiKey}`,
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Content-Length': Buffer.byteLength(body),
+          },
+        },
+        res => {
+          let raw = '';
+          res.on('data', chunk => (raw += chunk));
+          res.on('end', () => {
+            try {
+              const json = JSON.parse(raw);
+              if (json.error) {
+                reject(new Error(`Google Vision: ${json.error.message}`));
+                return;
+              }
+              const annotation = json.responses?.[0]?.fullTextAnnotation;
+              const text: string = annotation?.text ?? '';
+              const pageConf: number = annotation?.pages?.[0]?.confidence ?? 0;
+              resolve({ text, confidence: Math.round(pageConf * 100) });
+            } catch (e) {
+              reject(e);
+            }
+          });
+        },
+      );
+
+      req.on('error', reject);
+      req.write(body);
+      req.end();
+    });
+  }
+
+  // ─── OCR Tesseract ────────────────────────────────────────────────────────
 
   /**
    * Lance l'OCR Tesseract sur une image.
@@ -402,6 +465,61 @@ export class TicketService {
 
       if (!fs.existsSync(filePath)) {
         throw new Error('Fichier introuvable');
+      }
+
+      // ── Étape 0 : Google Vision (si clé disponible) ────────────────────
+      if (process.env.GOOGLE_VISION_API_KEY) {
+        try {
+          this.logger.log('🌐 Tentative Google Cloud Vision…');
+          const { text } = await this.runGoogleVisionOCR(filePath);
+          const extracted = this.extractAllData(text);
+          this.logger.log(`📊 Google Vision: score=${extracted.confidence}%`);
+
+          // Google Vision est fiable : on accepte dès qu'un montant est trouvé
+          if (extracted.total !== null || extracted.confidence >= 30) {
+            let success = true;
+            let message: string;
+            if (extracted.confidence >= 50) {
+              message = `✅ Google Vision OCR réussi (${extracted.confidence}%)`;
+            } else if (extracted.total !== null) {
+              message = `🔍 Google Vision — montant détecté: ${extracted.total}€`;
+            } else {
+              message = `⚠️ Google Vision partiel (${extracted.confidence}%)`;
+            }
+
+            const ticket = this.ticketRepository.create({
+              texte: extracted.cleanedText || '',
+              user,
+              dateAjout: new Date(),
+              totalExtrait: extracted.total ?? undefined,
+              dateTicket: extracted.date ?? undefined,
+              commercant: extracted.merchant ?? undefined,
+              tva: extracted.tva ?? undefined,
+              confianceOCR: extracted.confidence,
+              imagePath: filePath,
+            });
+            if (extracted.articles.length > 0) ticket.articles = extracted.articles;
+            const saved = await this.ticketRepository.save(ticket);
+            this.logger.log(`💾 Ticket #${saved.id} sauvegardé via Google Vision`);
+
+            return {
+              success,
+              text: extracted.cleanedText,
+              message,
+              extractedData: {
+                confidence: extracted.confidence,
+                total: extracted.total,
+                date: extracted.date,
+                merchant: extracted.merchant,
+                tva: extracted.tva,
+                articles: extracted.articles,
+              },
+              ticketId: saved.id,
+            };
+          }
+        } catch (err) {
+          this.logger.warn(`⚠️ Google Vision échoué, fallback Tesseract: ${err.message}`);
+        }
       }
 
       // ── Étape 1 : tests rapides sur l'image originale ──────────────────
