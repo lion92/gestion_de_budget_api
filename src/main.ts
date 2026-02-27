@@ -4,6 +4,14 @@ import * as cookieParser from 'cookie-parser';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { ValidationPipe } from '@nestjs/common';
 
+// Empêche les erreurs Worker thread (Tesseract) de tuer le process
+process.on('uncaughtException', (error) => {
+  console.error('[UncaughtException] Process maintenu en vie:', error.message);
+});
+process.on('unhandledRejection', (reason) => {
+  console.error('[UnhandledRejection] Process maintenu en vie:', reason);
+});
+
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, {
     logger: ['error', 'warn', 'log'],

@@ -458,11 +458,30 @@ export class TicketService {
         throw new Error('Fichier introuvable');
       }
 
+      // ── Validation + normalisation PNG (évite le crash Worker Tesseract) ─
+      // Sharp valide le format ; si le fichier est HEIC/PDF/corrompu, il lève
+      // une erreur ici — dans le try-catch principal — au lieu de tuer le process.
+      let ocrInputPath = filePath;
+      try {
+        const meta = await sharp(filePath).metadata();
+        this.logger.log(`📷 Format: ${meta.format} ${meta.width}x${meta.height}px`);
+        // Convertit en PNG pour une compatibilité maximale avec Tesseract
+        const pngPath = filePath.replace(/\.[^/.]+$/, '') + '_ocr.png';
+        await sharp(filePath).png({ compressionLevel: 1 }).toFile(pngPath);
+        ocrInputPath = pngPath;
+        tempFiles.push(pngPath);
+        this.logger.log(`🔄 Normalisé en PNG: ${pngPath}`);
+      } catch (err) {
+        throw new Error(
+          `Format non supporté ou fichier corrompu: ${err.message}. Utilisez JPG ou PNG.`,
+        );
+      }
+
       // ── Étape 0 : Google Vision (si clé disponible) ────────────────────
       if (process.env.GOOGLE_VISION_API_KEY) {
         try {
           this.logger.log('🌐 Tentative Google Cloud Vision…');
-          const { text } = await this.runGoogleVisionOCR(filePath);
+          const { text } = await this.runGoogleVisionOCR(ocrInputPath);
           const extracted = this.extractAllData(text);
           this.logger.log(`📊 Google Vision: score=${extracted.confidence}%`);
 
@@ -525,7 +544,7 @@ export class TicketService {
 
       for (const test of quickTests) {
         try {
-          const { text } = await this.runOCR(filePath, test.lang, test.label);
+          const { text } = await this.runOCR(ocrInputPath, test.lang, test.label);
           const extracted = this.extractAllData(text);
 
           this.logger.log(`📊 Test ${test.label}: score=${extracted.confidence}%`);
@@ -547,7 +566,7 @@ export class TicketService {
       // ── Étape 2 : variantes prétraitées si score insuffisant ───────────
       if (bestScore < GOOD_SCORE) {
         this.logger.log(`⚡ Score faible (${bestScore}%), création des variantes…`);
-        const variants = await this.createPreprocessedVariants(filePath);
+        const variants = await this.createPreprocessedVariants(ocrInputPath);
         tempFiles.push(...variants.map(v => v.path));
 
         for (const variant of variants) {
