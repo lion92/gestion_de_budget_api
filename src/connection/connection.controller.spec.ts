@@ -56,6 +56,7 @@ describe('ConnectionController', () => {
     where: jest.fn().mockReturnThis(),
     getSql: jest.fn().mockReturnThis(),
     execute: jest.fn(),
+    getOne: jest.fn(),
   };
 
   const mockUserRepository = {
@@ -177,7 +178,7 @@ describe('ConnectionController', () => {
         jwt: 'valid_jwt'
       };
       mockJwtService.verifyAsync.mockResolvedValue({
-        userId: 1
+        id: 1
       });
       mockConnectionService.update.mockResolvedValue(undefined);
 
@@ -215,13 +216,13 @@ describe('ConnectionController', () => {
       const decodedJwt = {
         id: 1
       };
-      const mockUser = [{
+      const mockUser = {
         id: 1,
         nom: 'Test',
         prenom: 'User'
-      }]; // Ensure this is an array
+      };
       mockJwtService.verifyAsync.mockResolvedValue(decodedJwt);
-      mockQueryBuilder.execute.mockResolvedValue(mockUser);
+      mockQueryBuilder.getOne.mockResolvedValue(mockUser);
 
       const result = await controller.user(jwtPayload);
 
@@ -229,14 +230,14 @@ describe('ConnectionController', () => {
         secret: process.env.secret
       });
       expect(mockUserRepository.createQueryBuilder).toHaveBeenCalledWith('User');
-      expect(mockQueryBuilder.select).toHaveBeenCalledWith('id, nom, prenom');
+      expect(mockQueryBuilder.select).toHaveBeenCalledWith(['User.id', 'User.nom', 'User.prenom']);
       expect(mockQueryBuilder.where).toHaveBeenCalledWith({
         id: decodedJwt.id
       });
       expect(result).toEqual({
-        id: mockUser[0].id,
-        nom: mockUser[0].nom,
-        prenom: mockUser[0].prenom
+        id: mockUser.id,
+        nom: mockUser.nom,
+        prenom: mockUser.prenom
       });
     });
 

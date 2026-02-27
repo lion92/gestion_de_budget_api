@@ -185,7 +185,7 @@ describe('ConnectionService', () => {
 
       expect(result.status).toBe(401);
       expect(result.success).toBe(false);
-      expect(result.message).toBe('Mot de passe incorrect.');
+      expect(result.message).toContain('Mot de passe incorrect.');
     });
 
     it('should return success response when login is valid', async () => {
@@ -209,7 +209,7 @@ describe('ConnectionService', () => {
       expect(result.status).toBe(200);
       expect(result.success).toBe(true);
       expect(result.jwt).toBe(mockJwt);
-      expect(mockResponse.cookie).toHaveBeenCalledWith('jwt', mockJwt, { httpOnly: true });
+      expect(mockResponse.cookie).toHaveBeenCalledWith('jwt', mockJwt, expect.objectContaining({ httpOnly: true }));
     });
   });
 

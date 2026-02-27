@@ -1,10 +1,12 @@
 import { IsNumber, IsOptional, IsString } from 'class-validator';
+import { Type } from 'class-transformer';
 import { User } from '../entity/user.entity';
 import Month from './enumMonth/Month';
 
 export class CategorieDTO {
   @IsNumber()
   @IsOptional()
+  @Type(() => Number)
   readonly id: number;
 
   @IsString()
@@ -23,10 +25,12 @@ export class CategorieDTO {
 
   @IsNumber()
   @IsOptional()
+  @Type(() => Number)
   readonly annee: number;
 
   @IsNumber()
   @IsOptional()
+  @Type(() => Number)
   readonly budgetDebutMois: number;
 
   @IsString()
