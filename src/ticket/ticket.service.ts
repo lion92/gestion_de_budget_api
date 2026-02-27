@@ -420,30 +420,21 @@ export class TicketService {
   // ─── OCR Tesseract ────────────────────────────────────────────────────────
 
   /**
-   * Lance l'OCR Tesseract sur une image.
-   * PSM 4 = colonne unique → optimal pour les tickets de caisse.
+   * Lance l'OCR Tesseract sur une image via l'API shorthand (stable v6).
    */
   private async runOCR(
     imagePath: string,
     lang: string,
     label: string,
   ): Promise<{ text: string; tesseractConfidence: number }> {
-    const worker = await Tesseract.createWorker(lang, 1, {
+    const { data } = await Tesseract.recognize(imagePath, lang, {
       logger: m => {
         if (m.status === 'recognizing text') {
           this.logger.log(`OCR [${label}]: ${Math.round((m.progress as number) * 100)}%`);
         }
       },
     });
-
-    try {
-      // PSM 4 = single column of text of variable sizes (idéal tickets)
-      await worker.setParameters({ tessedit_pageseg_mode: '4' as any });
-      const { data } = await worker.recognize(imagePath);
-      return { text: data.text, tesseractConfidence: data.confidence };
-    } finally {
-      await worker.terminate();
-    }
+    return { text: data.text, tesseractConfidence: data.confidence };
   }
 
   // ─── Point d'entrée public ────────────────────────────────────────────────
