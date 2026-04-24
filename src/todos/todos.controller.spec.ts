@@ -1,130 +1,75 @@
-// Mock all problematic modules before any imports
-jest.mock('typeorm', () => {
-  const Repository = jest.fn();
-  Repository.prototype.create = jest.fn();
-  Repository.prototype.save = jest.fn();
-  Repository.prototype.findOne = jest.fn();
-  Repository.prototype.remove = jest.fn();
-  Repository.prototype.find = jest.fn();
-  Repository.prototype.update = jest.fn();
-
-  return {
-    Repository,
-    Entity: jest.fn(() => () => {}),
-    PrimaryGeneratedColumn: jest.fn(() => () => {}),
-    Column: jest.fn(() => () => {}),
-    ManyToOne: jest.fn(() => () => {}),
-    OneToMany: jest.fn(() => () => {}),
-    JoinColumn: jest.fn(() => () => {}),
-    OneToOne: jest.fn(() => () => {}),
-    CreateDateColumn: jest.fn(() => () => {}),
-    UpdateDateColumn: jest.fn(() => () => {}),
-  };
-});
-
-jest.mock('@nestjs/typeorm', () => ({
-  InjectRepository: jest.fn(() => () => {}),
-  getRepositoryToken: jest.fn((entity) => `${entity?.name || 'Unknown'}Repository`),
-  TypeOrmModule: {
-    forFeature: jest.fn(),
-    forRoot: jest.fn(),
-  },
-}));
-
-jest.mock('@nestjs/jwt', () => ({
-  JwtService: jest.fn().mockImplementation(() => ({
-    verifyAsync: jest.fn(),
-    signAsync: jest.fn(),
-  })),
-}));
-
-// Mock multer and file upload
-jest.mock('@nestjs/platform-express', () => ({
-  FileInterceptor: jest.fn(() => () => {}),
-}));
-
-jest.mock('multer', () => ({
-  diskStorage: jest.fn(),
-}));
-
-jest.mock('fs', () => ({
-  existsSync: jest.fn(),
-  unlinkSync: jest.fn(),
-  mkdirSync: jest.fn(),
-}));
-
-jest.mock('path', () => ({
-  join: jest.fn().mockReturnValue('mock/path'),
-  extname: jest.fn().mockReturnValue('.png'),
-}));
+jest.mock('multer', () => ({ diskStorage: jest.fn(() => ({})) }));
+jest.mock('@nestjs/platform-express', () => ({ FileInterceptor: jest.fn(() => () => {}) }));
+jest.mock('dotenv', () => ({ config: jest.fn() }));
 
 import { UnauthorizedException } from '@nestjs/common';
 
-// Create mock services
 const mockTodosService = {
-  create: jest.fn(),
   findAll: jest.fn(),
+  findByUser: jest.fn(),
+  findOneBy: jest.fn(),
+  delete: jest.fn(),
   update: jest.fn(),
-  remove: jest.fn(),
-  findOne: jest.fn(),
+  create: jest.fn(),
 };
 
 const mockJwtService = {
   verifyAsync: jest.fn(),
 };
 
-// Create a simple mock controller class
+// Contrôleur miroir fidèle à la logique réelle (jwt dans le body, pas Bearer header)
 class MockTodosController {
   constructor(
-    private todosService: any,
-    private jwtService: any,
+    private readonly todos: typeof mockTodosService,
+    private readonly jwtService: typeof mockJwtService,
   ) {}
 
-  async create(todoDto: any, authorization: string) {
-    // Mock auth validation
-    if (!authorization || !authorization.startsWith('Bearer ')) {
-      throw new UnauthorizedException('Invalid token');
-    }
-
-    const token = authorization.split(' ')[1];
-    const user = await this.jwtService.verifyAsync(token);
-
-    if (!user) {
-      throw new UnauthorizedException('Invalid token');
-    }
-
-    return this.todosService.create(todoDto, user.id);
+  async findAll() {
+    return this.todos.findAll();
   }
 
-  async findAll(authorization: string) {
-    // Mock auth validation
-    if (!authorization || !authorization.startsWith('Bearer ')) {
-      throw new UnauthorizedException('Invalid token');
-    }
+  async findAllByUser(userId: number) {
+    return this.todos.findByUser(userId);
+  }
 
-    const token = authorization.split(' ')[1];
-    const user = await this.jwtService.verifyAsync(token);
+  async findOne(id: number) {
+    return this.todos.findOneBy(id).catch(() => undefined);
+  }
 
-    if (!user) {
-      throw new UnauthorizedException('Invalid token');
-    }
+  async remove(id: number, jwt: { jwt: string }) {
+    const data = await this.jwtService.verifyAsync(jwt.jwt, { secret: process.env.secret });
+    if (!data) throw new UnauthorizedException();
+    await this.todos.delete(id);
+    return 'ok';
+  }
 
-    return this.todosService.findAll(user.id);
+  async update(id: number, todo: any, jwt: { jwt: string }) {
+    const data = await this.jwtService.verifyAsync(jwt.jwt, { secret: process.env.secret });
+    if (!data) throw new UnauthorizedException();
+    await this.todos.update(id, todo);
+    return 'ok';
+  }
+
+  async create(todo: any, jwt: { jwt: string }) {
+    const data = await this.jwtService.verifyAsync(jwt.jwt, { secret: process.env.secret });
+    if (!data) throw new UnauthorizedException();
+    await this.todos.create(todo);
   }
 
   async local(file: any) {
-    if (!file) {
-      return { error: 'No file uploaded' };
-    }
-
-    return { path: file.path || 'mock/uploaded/file.png' };
+    if (!file) return { error: 'No file uploaded' };
+    return { statusCode: 200, data: file.path };
   }
 }
 
 describe('TodosController', () => {
   let controller: MockTodosController;
 
-  beforeEach(async () => {
+  const validJwt = { jwt: 'valid_jwt' };
+  const jwtPayload = { id: 1, email: 'test@test.com' };
+  const mockTodo = { id: 1, title: 'Faire les courses', completed: false };
+
+  beforeEach(() => {
     controller = new MockTodosController(mockTodosService, mockJwtService);
     jest.clearAllMocks();
   });
@@ -133,75 +78,163 @@ describe('TodosController', () => {
     expect(controller).toBeDefined();
   });
 
-  describe('create', () => {
-    it('should create a todo successfully', async () => {
-      const mockTodo = {
-        id: 1,
-        title: 'Test Todo',
-        description: 'Test Description',
-        completed: false,
-      };
+  // ─── GET /todos ────────────────────────────────────────────────────────────
 
-      const mockUser = { id: 1, email: 'test@test.com' };
+  describe('findAll', () => {
+    it('devrait retourner tous les todos', async () => {
+      const todos = [mockTodo, { id: 2, title: 'Nettoyer', completed: true }];
+      mockTodosService.findAll.mockResolvedValue(todos);
 
-      mockJwtService.verifyAsync.mockResolvedValue(mockUser);
-      mockTodosService.create.mockResolvedValue(mockTodo);
+      const result = await controller.findAll();
 
-      const result = await controller.create(
-        { title: 'Test Todo', description: 'Test Description' },
-        'Bearer valid_token'
-      );
+      expect(mockTodosService.findAll).toHaveBeenCalled();
+      expect(result).toEqual(todos);
+    });
 
-      expect(mockJwtService.verifyAsync).toHaveBeenCalledWith('valid_token');
-      expect(mockTodosService.create).toHaveBeenCalledWith(
-        { title: 'Test Todo', description: 'Test Description' },
-        1
-      );
+    it('devrait retourner un tableau vide si aucun todo', async () => {
+      mockTodosService.findAll.mockResolvedValue([]);
+      const result = await controller.findAll();
+      expect(result).toEqual([]);
+    });
+  });
+
+  // ─── GET /todos/byuser/:user ───────────────────────────────────────────────
+
+  describe('findAllByUser', () => {
+    it('devrait retourner les todos d\'un utilisateur', async () => {
+      mockTodosService.findByUser.mockResolvedValue([mockTodo]);
+
+      const result = await controller.findAllByUser(1);
+
+      expect(mockTodosService.findByUser).toHaveBeenCalledWith(1);
+      expect(result).toEqual([mockTodo]);
+    });
+
+    it('devrait retourner un tableau vide si l\'utilisateur n\'a pas de todos', async () => {
+      mockTodosService.findByUser.mockResolvedValue([]);
+      const result = await controller.findAllByUser(99);
+      expect(result).toEqual([]);
+    });
+  });
+
+  // ─── GET /todos/:id ────────────────────────────────────────────────────────
+
+  describe('findOne', () => {
+    it('devrait retourner un todo par son id', async () => {
+      mockTodosService.findOneBy.mockResolvedValue(mockTodo);
+
+      const result = await controller.findOne(1);
+
+      expect(mockTodosService.findOneBy).toHaveBeenCalledWith(1);
       expect(result).toEqual(mockTodo);
     });
 
-    it('should throw UnauthorizedException if no authorization header', async () => {
-      await expect(controller.create({ title: 'Test' }, ''))
-        .rejects.toThrow(UnauthorizedException);
+    it('devrait retourner undefined si le todo n\'existe pas', async () => {
+      mockTodosService.findOneBy.mockRejectedValue(new Error('Not found'));
+      const result = await controller.findOne(999);
+      expect(result).toBeUndefined();
     });
   });
 
-  describe('findAll', () => {
-    it('should return all todos for user', async () => {
-      const mockTodos = [
-        { id: 1, title: 'Todo 1', completed: false },
-        { id: 2, title: 'Todo 2', completed: true },
-      ];
+  // ─── DELETE /todos/:id ─────────────────────────────────────────────────────
 
-      const mockUser = { id: 1, email: 'test@test.com' };
+  describe('remove', () => {
+    it('devrait supprimer un todo si jwt valide', async () => {
+      mockJwtService.verifyAsync.mockResolvedValue(jwtPayload);
+      mockTodosService.delete.mockResolvedValue(undefined);
 
-      mockJwtService.verifyAsync.mockResolvedValue(mockUser);
-      mockTodosService.findAll.mockResolvedValue(mockTodos);
+      const result = await controller.remove(1, validJwt);
 
-      const result = await controller.findAll('Bearer valid_token');
+      expect(mockJwtService.verifyAsync).toHaveBeenCalledWith('valid_jwt', { secret: process.env.secret });
+      expect(mockTodosService.delete).toHaveBeenCalledWith(1);
+      expect(result).toBe('ok');
+    });
 
-      expect(mockJwtService.verifyAsync).toHaveBeenCalledWith('valid_token');
-      expect(mockTodosService.findAll).toHaveBeenCalledWith(1);
-      expect(result).toEqual(mockTodos);
+    it('devrait lever une erreur si jwt invalide', async () => {
+      mockJwtService.verifyAsync.mockRejectedValue(new Error('jwt malformed'));
+
+      await expect(controller.remove(1, { jwt: 'bad_jwt' })).rejects.toThrow();
+      expect(mockTodosService.delete).not.toHaveBeenCalled();
+    });
+
+    it('devrait lever UnauthorizedException si verifyAsync retourne null', async () => {
+      mockJwtService.verifyAsync.mockResolvedValue(null);
+
+      await expect(controller.remove(1, validJwt)).rejects.toThrow(UnauthorizedException);
+      expect(mockTodosService.delete).not.toHaveBeenCalled();
     });
   });
 
-  describe('local', () => {
-    it('should return file path on successful upload', async () => {
-      const mockFile = {
-        filename: 'test.png',
-        path: '/uploads/test.png',
-        mimetype: 'image/png',
-      };
+  // ─── PUT /todos/:id ────────────────────────────────────────────────────────
+
+  describe('update', () => {
+    const updatedTodo = { title: 'Todo modifié', completed: true };
+
+    it('devrait mettre à jour un todo si jwt valide', async () => {
+      mockJwtService.verifyAsync.mockResolvedValue(jwtPayload);
+      mockTodosService.update.mockResolvedValue(undefined);
+
+      const result = await controller.update(1, updatedTodo, validJwt);
+
+      expect(mockTodosService.update).toHaveBeenCalledWith(1, updatedTodo);
+      expect(result).toBe('ok');
+    });
+
+    it('devrait lever une erreur si jwt invalide', async () => {
+      mockJwtService.verifyAsync.mockRejectedValue(new Error('jwt expired'));
+
+      await expect(controller.update(1, updatedTodo, { jwt: 'expired_jwt' })).rejects.toThrow();
+      expect(mockTodosService.update).not.toHaveBeenCalled();
+    });
+
+    it('devrait lever UnauthorizedException si verifyAsync retourne null', async () => {
+      mockJwtService.verifyAsync.mockResolvedValue(null);
+
+      await expect(controller.update(1, updatedTodo, validJwt)).rejects.toThrow(UnauthorizedException);
+    });
+  });
+
+  // ─── POST /todos ───────────────────────────────────────────────────────────
+
+  describe('create', () => {
+    const newTodo = { title: 'Nouveau todo', completed: false };
+
+    it('devrait créer un todo si jwt valide', async () => {
+      mockJwtService.verifyAsync.mockResolvedValue(jwtPayload);
+      mockTodosService.create.mockResolvedValue(undefined);
+
+      await controller.create(newTodo, validJwt);
+
+      expect(mockTodosService.create).toHaveBeenCalledWith(newTodo);
+    });
+
+    it('devrait lever une erreur si jwt invalide', async () => {
+      mockJwtService.verifyAsync.mockRejectedValue(new Error('jwt malformed'));
+
+      await expect(controller.create(newTodo, { jwt: 'bad_jwt' })).rejects.toThrow();
+      expect(mockTodosService.create).not.toHaveBeenCalled();
+    });
+
+    it('devrait lever UnauthorizedException si verifyAsync retourne null', async () => {
+      mockJwtService.verifyAsync.mockResolvedValue(null);
+
+      await expect(controller.create(newTodo, validJwt)).rejects.toThrow(UnauthorizedException);
+    });
+  });
+
+  // ─── POST /todos/upload ────────────────────────────────────────────────────
+
+  describe('local (upload fichier)', () => {
+    it('devrait retourner le chemin du fichier uploadé', async () => {
+      const mockFile = { originalname: 'image.png', path: './uploads/image.png' };
 
       const result = await controller.local(mockFile);
 
-      expect(result).toEqual({ path: '/uploads/test.png' });
+      expect(result).toEqual({ statusCode: 200, data: './uploads/image.png' });
     });
 
-    it('should return error if no file uploaded', async () => {
+    it('devrait retourner une erreur si aucun fichier fourni', async () => {
       const result = await controller.local(null);
-
       expect(result).toEqual({ error: 'No file uploaded' });
     });
   });
