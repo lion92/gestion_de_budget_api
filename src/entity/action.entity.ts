@@ -3,6 +3,7 @@ import { User } from './user.entity';
 import { categorieModule } from '../categorie/Categorie.module';
 import { Module } from '@nestjs/common';
 import { Categorie } from './categorie.entity';
+import { Ticket } from './ticket.entity';
 
 @Module({
   imports: [categorieModule],
@@ -28,6 +29,10 @@ export class Action {
 
   @Column({ type: 'datetime', nullable: true })
   dateTransaction: Date;
+
+  @ManyToOne(() => Ticket, { nullable: true, onDelete: 'SET NULL' })
+  ticket?: Ticket;
+
   @ManyToOne(() => Categorie, author => Categorie, {
     onDelete: 'CASCADE',
     onUpdate: 'CASCADE',

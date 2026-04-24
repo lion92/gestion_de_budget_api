@@ -5,12 +5,16 @@ import {
   HttpStatus,
   Post,
   Get,
+  Delete,
   Param,
+  Req,
   Res,
   UploadedFile,
   UseInterceptors,
   UnauthorizedException,
   BadRequestException,
+  ForbiddenException,
+  NotFoundException,
   Logger,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
@@ -23,6 +27,8 @@ import { Repository } from 'typeorm';
 import { User } from '../entity/user.entity';
 import { JwtService } from '@nestjs/jwt';
 import { Ticket } from '../entity/ticket.entity';
+import { Action } from '../entity/action.entity';
+import { Categorie } from '../entity/categorie.entity';
 import { v4 as uuidv4 } from 'uuid';
 
 const uploadPath = join(__dirname, '..', '..', 'uploads');
@@ -503,6 +509,78 @@ export class TicketController {
         'Erreur lors de la récupération de l\'image',
         HttpStatus.INTERNAL_SERVER_ERROR
       );
+    }
+  }
+
+  // ─── Liaison ticket ↔ dépense ─────────────────────────────────────────────
+
+  private async getUserFromJwtBody(jwt: string): Promise<User> {
+    const data = await this.jwtService.verifyAsync(jwt, {
+      secret: process.env.JWT_SECRET || process.env.secret,
+    });
+    if (!data?.id) throw new UnauthorizedException('Token JWT invalide');
+    const user = await this.userRepository.findOne({ where: { id: data.id } });
+    if (!user) throw new HttpException('Utilisateur non trouvé', HttpStatus.NOT_FOUND);
+    return user;
+  }
+
+  private async getUserFromBearerHeader(req: any): Promise<User> {
+    const auth: string = req.headers?.authorization ?? '';
+    const token = auth.startsWith('Bearer ') ? auth.slice(7) : auth;
+    if (!token) throw new UnauthorizedException('Token JWT manquant');
+    return this.getUserFromJwtBody(token);
+  }
+
+  @Post('link')
+  async linkTicketToExpense(
+    @Body() body: {
+      jwt: string;
+      ticketId: number;
+      expenseId: number;
+      extractedData: Record<string, any>;
+    },
+  ) {
+    try {
+      if (!body.jwt || !body.ticketId || !body.expenseId) {
+        throw new BadRequestException('jwt, ticketId et expenseId requis');
+      }
+      const user = await this.getUserFromJwtBody(body.jwt);
+      await this.ticketService.linkTicketToExpense(
+        body.ticketId,
+        body.expenseId,
+        body.extractedData ?? {},
+        user,
+      );
+      return { success: true };
+    } catch (error) {
+      this.logger.error('Erreur linkTicketToExpense:', error);
+      if (error instanceof HttpException) throw error;
+      throw new HttpException(error.message, HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+  }
+
+  @Get('byexpense/:expenseId')
+  async getTicketByExpense(@Param('expenseId') expenseId: number, @Req() req: any) {
+    try {
+      const user = await this.getUserFromBearerHeader(req);
+      return await this.ticketService.getTicketByExpense(expenseId, user);
+    } catch (error) {
+      this.logger.error(`Erreur getTicketByExpense ${expenseId}:`, error);
+      if (error instanceof HttpException) throw error;
+      throw new HttpException(error.message, HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+  }
+
+  @Delete('link/:expenseId')
+  async deleteLinkByExpense(@Param('expenseId') expenseId: number, @Req() req: any) {
+    try {
+      const user = await this.getUserFromBearerHeader(req);
+      await this.ticketService.deleteLinkByExpense(expenseId, user);
+      return { success: true };
+    } catch (error) {
+      this.logger.error(`Erreur deleteLinkByExpense ${expenseId}:`, error);
+      if (error instanceof HttpException) throw error;
+      throw new HttpException(error.message, HttpStatus.INTERNAL_SERVER_ERROR);
     }
   }
 }

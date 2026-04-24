@@ -1,11 +1,14 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException, ForbiddenException } from '@nestjs/common';
 import * as Tesseract from 'tesseract.js';
 import * as sharp from 'sharp';
 import * as fs from 'fs';
 import * as https from 'https';
+import * as http from 'http';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Ticket } from '../entity/ticket.entity';
+import { TicketExpense } from '../entity/ticket-expense.entity';
+import { Action } from '../entity/action.entity';
 import { User } from '../entity/user.entity';
 
 interface Article {
@@ -49,33 +52,57 @@ export class TicketService {
 
   // Corrections OCR enrichies
   private readonly OCR_CORRECTIONS: [RegExp, string][] = [
-    // TOTAL
-    [/\bT0TAL\b/gi, 'TOTAL'],
+    // ── TOTAL et variantes ────────────────────────────────────────────────
+    [/\bT[O0]TAL\b/gi, 'TOTAL'],
     [/\bTUTAL\b/gi, 'TOTAL'],
     [/\bT[O0]TAI\b/gi, 'TOTAL'],
+    [/\bT\s?[O0]\s?T\s?A\s?L\b/gi, 'TOTAL'],
     [/\[\s*OTAL\b/gi, 'TOTAL'],
     [/\(\s*OTAL\b/gi, 'TOTAL'],
-    [/\bTOTAl\b/g, 'TOTAL'],
-    // EUR / €
-    [/\bLUR\b/gi, 'EUR'],
-    [/\bLIRR\b/gi, 'EUR'],
-    [/\bEUR0\b/gi, 'EURO'],
-    // TVA
-    [/\bTVfl\b/gi, 'TVA'],
-    [/\bTVf\b/gi, 'TVA'],
-    [/\bT\.V\.A\b/gi, 'TVA'],
-    // NET / PAYER
-    [/\bNEr\b/gi, 'NET'],
+    [/\bTOTRL\b/gi, 'TOTAL'],
+    [/\bT0TAI\b/gi, 'TOTAL'],
+    // ── MONTANT ──────────────────────────────────────────────────────────
+    [/\bM[O0]NTANT\b/gi, 'MONTANT'],
+    [/\bMONT\s?ANT\b/gi, 'MONTANT'],
+    [/\bMNONTANT\b/gi, 'MONTANT'],
+    // ── PAYER / PAIEMENT ─────────────────────────────────────────────────
     [/\bPA¥ER\b/gi, 'PAYER'],
     [/\bPAYEl\b/gi, 'PAYER'],
-    // Confusions 0/O et 1/l dans les chiffres
+    [/\bPAYEF\b/gi, 'PAYER'],
+    [/\bPAIEM[EE]NT\b/gi, 'PAIEMENT'],
+    // ── NET ──────────────────────────────────────────────────────────────
+    [/\bNEr\b/gi, 'NET'],
+    [/\bN[EE]T\b/g, 'NET'],
+    // ── EUR / € ──────────────────────────────────────────────────────────
+    [/\bLUR\b/gi, 'EUR'],
+    [/\bLIRR\b/gi, 'EUR'],
+    [/\bEUR[O0]\b/gi, 'EURO'],
+    [/\bEUF\b/gi, 'EUR'],
+    // ── TVA ──────────────────────────────────────────────────────────────
+    [/\bTVfl\b/gi, 'TVA'],
+    [/\bTVf\b/gi, 'TVA'],
+    [/\bT\.V\.A\.?\b/gi, 'TVA'],
+    [/\bTV4\b/gi, 'TVA'],
+    // ── ESPECES / CB ─────────────────────────────────────────────────────
+    [/\bESP[EÈ]CES?\b/gi, 'ESPECES'],
+    [/\bESPECES\b/gi, 'ESPECES'],
+    // ── Confusions chiffres dans contexte de prix ─────────────────────────
+    // O/0 et I/l/1 entre deux chiffres
     [/(\d)[Ol](\d)/g, '$10$2'],
     [/(\d)[Il](\d)/g, '$11$2'],
+    // S→5, B→8, G→6 en contexte numérique (chiffre avant)
+    [/(\d)S(\d)/g, '$15$2'],
+    [/(\d)B(\d)/g, '$18$2'],
+    // Virgule/point OCR : parfois un espace est inséré "12 50" → garder pour extractPrices
   ];
 
   constructor(
     @InjectRepository(Ticket)
     private readonly ticketRepository: Repository<Ticket>,
+    @InjectRepository(TicketExpense)
+    private readonly ticketExpenseRepository: Repository<TicketExpense>,
+    @InjectRepository(Action)
+    private readonly actionRepository: Repository<Action>,
   ) {}
 
   // ─── Preprocessing ────────────────────────────────────────────────────────
@@ -162,62 +189,104 @@ export class TicketService {
 
   /** Extrait tous les montants présents sur une ligne */
   private extractPricesFromLine(line: string): number[] {
-    const patterns = [
-      /(\d{1,4})[,.](\d{2})\s*€?/g,
-      /€\s*(\d{1,4})[,.](\d{2})/g,
-    ];
-    const prices: number[] = [];
-    for (const pattern of patterns) {
-      const fresh = new RegExp(pattern.source, pattern.flags);
-      let match: RegExpExecArray | null;
-      while ((match = fresh.exec(line)) !== null) {
-        const price = parseFloat(`${match[1]}.${match[2]}`);
-        if (price > 0.01 && price < 10000) {
-          prices.push(price);
-        }
+    const seen = new Set<number>();
+    const add = (p: number) => {
+      if (p > 0.01 && p < 10000 && !seen.has(p)) {
+        seen.add(p);
       }
-    }
-    return prices;
+    };
+
+    // Pattern 1 : 12,50 ou 12.50 (2 décimales) optionnellement suivi de €
+    const p1 = /(\d{1,4})[,.](\d{2})(?:\s*[€E])?/g;
+    let m: RegExpExecArray | null;
+    while ((m = p1.exec(line)) !== null) add(parseFloat(`${m[1]}.${m[2]}`));
+
+    // Pattern 2 : € devant le nombre  →  €12,50
+    const p2 = /[€E]\s*(\d{1,4})[,.](\d{2})/g;
+    while ((m = p2.exec(line)) !== null) add(parseFloat(`${m[1]}.${m[2]}`));
+
+    // Pattern 3 : 1 seule décimale  →  12,5  (OCR qui coupe la 2e)
+    const p3 = /(\d{1,4})[,.](\d{1})(?!\d)/g;
+    while ((m = p3.exec(line)) !== null) add(parseFloat(`${m[1]}.${m[2]}0`));
+
+    // Pattern 4 : espace comme séparateur décimal → "12 50 €" ou "12 50€"
+    // Limité au contexte € pour éviter les faux positifs
+    const p4 = /(\d{1,4})\s(\d{2})\s*€/g;
+    while ((m = p4.exec(line)) !== null) add(parseFloat(`${m[1]}.${m[2]}`));
+
+    // Pattern 5 : nombre entier suivi de € (ex: "15 €", "15€")
+    const p5 = /\b(\d{1,4})\s*[€E]\b/g;
+    while ((m = p5.exec(line)) !== null) add(parseFloat(`${m[1]}.00`));
+
+    return Array.from(seen);
   }
 
   // ─── Extraction TOTAL ─────────────────────────────────────────────────────
 
-  /**
-   * Cherche d'abord le prix sur/après une ligne contenant un mot-clé de total.
-   * Fallback sur le prix maximum (comportement précédent).
-   */
   private computeTotal(lines: string[]): { total: number | null; boost: number } {
-    const totalKeyword =
-      /(?:total|net\s*[àa]\s*payer|[àa]\s*payer|montant|solde|r[eé]gler|ttc|net\s*ttc|total\s*ttc|vous\s*devez)/i;
+    // Priorité 1 – mots-clés à haute certitude (montant final payé)
+    const strongKw = /(?:net\s*[àa]\s*payer|[àa]\s*payer|vous\s*devez|montant\s*(?:total|ttc|net|pay[eé]|d[uû])|total\s*ttc|votre\s*total|net\s*(?:ttc|encaiss[eé])|solde\s*[àa]\s*payer)/i;
 
+    // Priorité 2 – mots-clés génériques (peut être sous-total aussi)
+    const weakKw = /(?:\btotal\b|\bmontant\b|\bsolde\b|r[eé]gler|encaiss[eé]|r[eè]glement|paiement)/i;
+
+    // Priorité 3 – lignes de moyen de paiement : montant exact payé
+    const paymentKw = /(?:\bcb\b|carte\s*(?:bleue|bancaire|visa|master(?:card)?|credit)?|esp[eè]ces?|ch[eè]que|paypal|lydia|virement)/i;
+
+    // Cherche le prix MAX dans une fenêtre de lignes (le TTC est toujours le plus grand)
+    const maxInWindow = (from: number, size = 3): number | null => {
+      const prices = lines
+        .slice(from, Math.min(from + size, lines.length))
+        .flatMap(l => this.extractPricesFromLine(l));
+      return prices.length > 0 ? Math.max(...prices) : null;
+    };
+
+    // Passe 1 : mots-clés forts
     for (let i = 0; i < lines.length; i++) {
-      const line = lines[i];
-      if (!totalKeyword.test(line)) continue;
-
-      // Prix sur la même ligne
-      const same = this.extractPricesFromLine(line);
-      if (same.length > 0) {
-        const total = same[same.length - 1]; // Dernier prix de la ligne = montant TTC
-        this.logger.log(`💰 Total trouvé (ligne mot-clé): ${total}€`);
-        return { total, boost: 50 };
-      }
-
-      // Prix sur la ligne suivante (format 2 lignes)
-      if (i + 1 < lines.length) {
-        const next = this.extractPricesFromLine(lines[i + 1]);
-        if (next.length > 0) {
-          this.logger.log(`💰 Total trouvé (ligne suivante): ${next[0]}€`);
-          return { total: next[0], boost: 40 };
-        }
+      if (!strongKw.test(lines[i])) continue;
+      const total = maxInWindow(i);
+      if (total !== null) {
+        this.logger.log(`💰 Total fort [${lines[i].trim()}]: ${total}€`);
+        return { total, boost: 55 };
       }
     }
 
-    // Fallback : prix le plus élevé
+    // Passe 2 : mots-clés faibles
+    for (let i = 0; i < lines.length; i++) {
+      if (!weakKw.test(lines[i])) continue;
+      const total = maxInWindow(i);
+      if (total !== null) {
+        this.logger.log(`💰 Total faible [${lines[i].trim()}]: ${total}€`);
+        return { total, boost: 45 };
+      }
+    }
+
+    // Passe 3 : lignes de paiement (CB, espèces…)
+    for (let i = 0; i < lines.length; i++) {
+      if (!paymentKw.test(lines[i])) continue;
+      const total = maxInWindow(i, 2);
+      if (total !== null) {
+        this.logger.log(`💰 Total paiement [${lines[i].trim()}]: ${total}€`);
+        return { total, boost: 40 };
+      }
+    }
+
+    // Passe 4 : dernier grand montant dans la moitié basse du ticket
+    // (les totaux sont toujours en bas)
+    const half = Math.floor(lines.length / 2);
+    const bottomPrices = lines.slice(half).flatMap(l => this.extractPricesFromLine(l));
+    if (bottomPrices.length > 0) {
+      const total = Math.max(...bottomPrices);
+      this.logger.log(`💰 Total bas-ticket (fallback): ${total}€`);
+      return { total, boost: 25 };
+    }
+
+    // Passe 5 : max global en dernier recours
     const allPrices = lines.flatMap(l => this.extractPricesFromLine(l));
     if (allPrices.length > 0) {
       const total = Math.max(...allPrices);
-      this.logger.log(`💰 Total fallback (max): ${total}€`);
-      return { total, boost: 20 };
+      this.logger.log(`💰 Total max global (dernier recours): ${total}€`);
+      return { total, boost: 15 };
     }
 
     return { total: null, boost: 0 };
@@ -325,31 +394,68 @@ export class TicketService {
     const cleanedText = this.cleanText(rawText);
     const lines = rawText.split('\n').map(l => l.trim()).filter(l => l.length > 0);
 
-    let confidence = 0;
-
     const { total, boost: totalBoost } = this.computeTotal(lines);
-    if (total !== null) confidence += totalBoost;
-
-    const date = this.extractDate(rawText);
-    if (date) confidence += 20;
-
+    const date    = this.extractDate(rawText);
     const merchant = this.extractMerchant(rawText);
-    if (merchant) confidence += 25;
-
-    const tva = this.extractTVA(rawText);
-    if (tva !== null) confidence += 10;
-
+    const tva     = this.extractTVA(rawText);
     const articles = this.extractArticles(rawText);
-    if (articles.length > 0) confidence += 15;
 
-    // Bonus qualité texte
-    if (rawText.length > 100) confidence += 5;
-    if (cleanedText.length > 50) confidence += 5;
-    if (/TOTAL/i.test(rawText)) confidence += 10;
-    if (articles.length > 3) confidence += 5; // Ticket bien lisible
+    // ── 1. Total détecté : 0–38 pts selon la fiabilité de la source ──────
+    // boost 55 = mot-clé fort | 45 = mot-clé faible | 40 = paiement CB
+    // 25 = bas ticket | 15 = max global
+    let score = 0;
+    const totalScore =
+      totalBoost >= 50 ? 38 :
+      totalBoost >= 40 ? 30 :
+      totalBoost >= 30 ? 22 :
+      totalBoost  >  0 ? 12 : 0;
+    score += totalScore;
+
+    // ── 2. Date valide : 0–12 pts ─────────────────────────────────────────
+    if (date) score += 12;
+
+    // ── 3. Enseigne : 0–12 pts (connue = 12, heuristique = 6) ────────────
+    if (merchant) {
+      const isKnown = this.STORE_NAMES.some(s => merchant.toUpperCase().includes(s));
+      score += isKnown ? 12 : 6;
+    }
+
+    // ── 4. Cohérence interne : 0–26 pts ──────────────────────────────────
+    if (total !== null && total >= 0.5 && total <= 5000) {
+      score += 3; // total dans une plage réaliste
+
+      // TVA cohérente : ~5 % (alimentaire) à ~25 % du total hors taxe
+      if (tva !== null && tva > total * 0.03 && tva < total * 0.28) score += 6;
+
+      // Somme des articles ≈ total
+      if (articles.length > 0) {
+        const sum = articles.reduce((acc, a) => acc + a.price * (a.quantity ?? 1), 0);
+        const ratio = sum / total;
+        if (ratio >= 0.80 && ratio <= 1.20) score += 12; // ±20 % → très cohérent
+        else if (ratio >= 0.60 && ratio <= 1.50) score += 6; // ±40-50 % → acceptable
+
+        // Total ≥ max article (cohérence basique)
+        const maxArticle = Math.max(...articles.map(a => a.price));
+        if (total >= maxArticle) score += 5;
+      }
+    }
+
+    // ── 5. Richesse du ticket : 0–8 pts ──────────────────────────────────
+    if (articles.length >= 1) score += 2;
+    if (articles.length >= 4) score += 3;
+    if (articles.length >= 8) score += 3;
+
+    // ── 6. Qualité OCR du texte brut : 0–4 pts ───────────────────────────
+    // Ratio de caractères alphanumériques/ponctuation sur longueur totale
+    const printable = (rawText.match(/[\w€.,:\-\/()%]/g) ?? []).length;
+    const ocrQuality = rawText.length > 0 ? printable / rawText.length : 0;
+    if (ocrQuality > 0.75) score += 4;
+    else if (ocrQuality > 0.55) score += 2;
+
+    const confidence = Math.min(100, Math.round(score));
 
     this.logger.log(
-      `📊 Extraction: total=${total}€, date=${date}, enseigne=${merchant}, TVA=${tva}€, articles=${articles.length}`,
+      `📊 Score: ${confidence}% | total=${total}€(+${totalScore}) date=${date}(+${date ? 12 : 0}) enseigne=${merchant} tva=${tva}€ articles=${articles.length} ocrQ=${Math.round(ocrQuality * 100)}%`,
     );
 
     return { total, date, merchant, tva, articles, confidence, cleanedText };
@@ -435,6 +541,96 @@ export class TicketService {
       },
     });
     return { text: data.text, tesseractConfidence: data.confidence };
+  }
+
+  // ─── Ollama LLM structuration ─────────────────────────────────────────────
+
+  /**
+   * Envoie le texte brut OCR à Qwen via Ollama pour extraction structurée JSON.
+   * Retourne null si Ollama n'est pas disponible ou timeout.
+   */
+  private async runOllamaLLM(rawOcrText: string): Promise<{
+    total: number | null;
+    date: string | null;
+    merchant: string | null;
+    tva: number | null;
+    articles: Article[];
+  } | null> {
+    const ollamaHost = process.env.OLLAMA_HOST || 'localhost';
+    const ollamaPort = parseInt(process.env.OLLAMA_PORT || '11434');
+    const model = process.env.OLLAMA_MODEL || 'qwen2.5:7b';
+
+    const prompt = `Tu es un expert en analyse de tickets de caisse français. Le texte ci-dessous est extrait par OCR et peut contenir des erreurs (lettres/chiffres confondus, espaces parasites).
+
+TEXTE OCR :
+---
+${rawOcrText.slice(0, 3000)}
+---
+
+Réponds UNIQUEMENT avec un JSON valide (sans markdown, sans commentaire) :
+{
+  "total": <nombre décimal ou null>,
+  "date": <"DD/MM/YYYY" ou null>,
+  "merchant": <chaîne ou null>,
+  "tva": <nombre décimal ou null>,
+  "articles": [{"name": "...", "price": 0.00, "quantity": 1}]
+}
+
+RÈGLES STRICTES pour "total" (priorité décroissante) :
+1. Cherche "NET A PAYER", "MONTANT TTC", "TOTAL TTC", "VOUS DEVEZ", "A PAYER" → c'est le montant juste après
+2. Sinon cherche "TOTAL" seul → montant sur la même ligne ou la ligne suivante
+3. Sinon cherche la ligne CB/CARTE/ESPECES → montant associé (c'est ce qui a été encaissé)
+4. Ne jamais retourner un sous-total, une TVA ou le prix d'un article comme total
+5. Le total est TOUJOURS >= à tout article individuel
+6. Si plusieurs candidats, prendre le plus grand qui est cohérent avec la somme des articles
+- articles = produits uniquement (max 20), exclure TVA/remises/totaux
+- Si valeur absente ou impossible à déterminer avec certitude → null`;
+
+    const body = JSON.stringify({
+      model,
+      prompt,
+      stream: false,
+      options: { temperature: 0, num_predict: 800 },
+    });
+
+    return new Promise((resolve) => {
+      const timeout = setTimeout(() => {
+        this.logger.warn('⏱ Ollama timeout (15s)');
+        resolve(null);
+      }, 15000);
+
+      const req = http.request(
+        { hostname: ollamaHost, port: ollamaPort, path: '/api/generate', method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body) } },
+        (res) => {
+          let raw = '';
+          res.on('data', chunk => (raw += chunk));
+          res.on('end', () => {
+            clearTimeout(timeout);
+            try {
+              const json = JSON.parse(raw);
+              const responseText: string = json.response || '';
+              const jsonMatch = responseText.match(/\{[\s\S]*\}/);
+              if (!jsonMatch) { resolve(null); return; }
+              const parsed = JSON.parse(jsonMatch[0]);
+              resolve({
+                total: typeof parsed.total === 'number' ? parsed.total : null,
+                date: typeof parsed.date === 'string' ? parsed.date : null,
+                merchant: typeof parsed.merchant === 'string' ? parsed.merchant : null,
+                tva: typeof parsed.tva === 'number' ? parsed.tva : null,
+                articles: Array.isArray(parsed.articles) ? parsed.articles.slice(0, 20) : [],
+              });
+            } catch (e) {
+              this.logger.warn(`Ollama JSON parse error: ${e.message}`);
+              resolve(null);
+            }
+          });
+        },
+      );
+      req.on('error', (e) => { clearTimeout(timeout); this.logger.warn(`Ollama error: ${e.message}`); resolve(null); });
+      req.write(body);
+      req.end();
+    });
   }
 
   // ─── Point d'entrée public ────────────────────────────────────────────────
@@ -595,7 +791,32 @@ export class TicketService {
         throw new Error("Aucune reconnaissance OCR n'a abouti");
       }
 
-      this.logger.log(`🏆 Meilleur score final: ${bestScore}%`);
+      this.logger.log(`🏆 Meilleur score Tesseract final: ${bestScore}%`);
+
+      // ── Étape 3 : enrichissement via Ollama LLM ────────────────────────
+      this.logger.log('🤖 Envoi du texte OCR à Ollama pour structuration…');
+      const ollamaResult = await this.runOllamaLLM(bestResult.cleanedText || '');
+
+      let finalTotal    = bestResult.total;
+      let finalDate     = bestResult.date;
+      let finalMerchant = bestResult.merchant;
+      let finalTva      = bestResult.tva;
+      let finalArticles = bestResult.articles;
+      let ocrSource     = 'tesseract';
+
+      if (ollamaResult) {
+        this.logger.log(`✅ Ollama: total=${ollamaResult.total}€, enseigne=${ollamaResult.merchant}, articles=${ollamaResult.articles.length}`);
+        // Ollama prime sur Tesseract pour total et articles (plus fiable)
+        if (ollamaResult.total !== null) finalTotal = ollamaResult.total;
+        if (ollamaResult.date)           finalDate = ollamaResult.date;
+        if (ollamaResult.merchant)       finalMerchant = ollamaResult.merchant;
+        if (ollamaResult.tva !== null)   finalTva = ollamaResult.tva;
+        if (ollamaResult.articles.length > 0) finalArticles = ollamaResult.articles;
+        ocrSource = 'tesseract+ollama';
+        if (finalTotal !== null) bestScore = Math.max(bestScore, 75);
+      } else {
+        this.logger.warn('⚠️ Ollama indisponible, utilisation du résultat Tesseract seul');
+      }
 
       // ── Résultat & message ─────────────────────────────────────────────
       let success: boolean;
@@ -603,13 +824,13 @@ export class TicketService {
 
       if (bestScore >= 50) {
         success = true;
-        message = `✅ OCR réussi (${bestScore}%)`;
+        message = `✅ OCR réussi via ${ocrSource} (${bestScore}%)`;
       } else if (bestScore >= 25) {
         success = true;
-        message = `⚠️ OCR partiel (${bestScore}%) — données incomplètes`;
-      } else if (bestResult.total !== null) {
+        message = `⚠️ OCR partiel via ${ocrSource} (${bestScore}%) — données incomplètes`;
+      } else if (finalTotal !== null) {
         success = true;
-        message = `🔍 OCR difficile — montant détecté: ${bestResult.total}€`;
+        message = `🔍 OCR difficile — montant détecté: ${finalTotal}€`;
       } else {
         success = false;
         message = `❌ Qualité insuffisante (${bestScore}%). Réessayez avec une photo plus nette.`;
@@ -622,21 +843,20 @@ export class TicketService {
           texte: bestResult.cleanedText || '',
           user,
           dateAjout: new Date(),
-          totalExtrait: bestResult.total ?? undefined,
-          dateTicket: bestResult.date ?? undefined,
-          commercant: bestResult.merchant ?? undefined,
-          tva: bestResult.tva ?? undefined,
+          totalExtrait: finalTotal ?? undefined,
+          dateTicket: finalDate ?? undefined,
+          commercant: finalMerchant ?? undefined,
+          tva: finalTva ?? undefined,
           confianceOCR: bestScore,
           imagePath: filePath,
         });
 
-        // Sauvegarder les articles via le setter de l'entité
-        if (bestResult.articles.length > 0) {
-          ticket.articles = bestResult.articles;
+        if (finalArticles.length > 0) {
+          ticket.articles = finalArticles;
         }
 
         savedTicket = await this.ticketRepository.save(ticket);
-        this.logger.log(`💾 Ticket #${savedTicket.id} sauvegardé`);
+        this.logger.log(`💾 Ticket #${savedTicket.id} sauvegardé (${ocrSource})`);
       }
 
       return {
@@ -645,11 +865,12 @@ export class TicketService {
         message,
         extractedData: {
           confidence: bestScore,
-          total: bestResult.total,
-          date: bestResult.date,
-          merchant: bestResult.merchant,
-          tva: bestResult.tva,
-          articles: bestResult.articles,
+          total: finalTotal,
+          date: finalDate,
+          merchant: finalMerchant,
+          tva: finalTva,
+          articles: finalArticles,
+          source: ocrSource,
         },
         ticketId: savedTicket?.id,
       };
@@ -673,6 +894,75 @@ export class TicketService {
         }
       }
     }
+  }
+
+  // ─── Liaison ticket ↔ dépense ─────────────────────────────────────────────
+
+  async linkTicketToExpense(
+    ticketId: number,
+    expenseId: number,
+    extractedData: Record<string, any>,
+    user: User,
+  ): Promise<TicketExpense> {
+    const expense = await this.actionRepository.findOne({
+      where: { id: expenseId },
+      relations: ['user'],
+    });
+
+    if (!expense) throw new NotFoundException('Dépense introuvable');
+    if (expense.user.id !== user.id) throw new ForbiddenException('Dépense non autorisée');
+
+    const ticket = await this.ticketRepository.findOne({ where: { id: ticketId } });
+    if (!ticket) throw new NotFoundException('Ticket introuvable');
+
+    // UPSERT : on écrase si la dépense avait déjà un ticket lié
+    const existing = await this.ticketExpenseRepository.findOne({
+      where: { expense: { id: expenseId } },
+    });
+
+    const link = existing ?? this.ticketExpenseRepository.create();
+    link.ticketId = ticketId;
+    link.expense = expense;
+    link.user = user;
+    link.extractedData = extractedData;
+
+    return this.ticketExpenseRepository.save(link);
+  }
+
+  async getTicketByExpense(expenseId: number, user: User): Promise<{
+    ticketId: number;
+    fileName: string;
+    fileUrl: string;
+    extractedData: Record<string, any>;
+  }> {
+    const link = await this.ticketExpenseRepository.findOne({
+      where: { expense: { id: expenseId }, user: { id: user.id } },
+    });
+
+    if (!link) throw new NotFoundException('Aucun ticket lié à cette dépense');
+
+    const ticket = await this.ticketRepository.findOne({ where: { id: link.ticketId } });
+    if (!ticket) throw new NotFoundException('Ticket introuvable');
+
+    const fileName = ticket.imagePath ? ticket.imagePath.split('/').pop() : '';
+    const baseUrl = process.env.BASE_URL || 'https://www.krisscode.fr/budget-api';
+    const fileUrl = `${baseUrl}/ticket/image/${ticket.id}`;
+
+    return {
+      ticketId: ticket.id,
+      fileName,
+      fileUrl,
+      extractedData: link.extractedData ?? {},
+    };
+  }
+
+  async deleteLinkByExpense(expenseId: number, user: User): Promise<void> {
+    const link = await this.ticketExpenseRepository.findOne({
+      where: { expense: { id: expenseId }, user: { id: user.id } },
+    });
+
+    if (!link) throw new NotFoundException('Aucun lien ticket-dépense trouvé');
+    await this.ticketExpenseRepository.remove(link);
   }
 
   async deleteTicket(id: number, user: User): Promise<void> {
