@@ -17,13 +17,6 @@ COPY . .
 # Build the application
 RUN yarn build
 
-
-
-
-
-
-
-
 # Expose port (will be configurable via docker-compose)
 EXPOSE ${PORT:-3010}
 
