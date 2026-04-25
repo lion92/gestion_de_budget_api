@@ -5,6 +5,8 @@ services:
     build: .
     ports:
       - "${PORT:-3010}:3010"
+    env_file:
+      - .env
     environment:
       - NODE_ENV=production
     volumes:
