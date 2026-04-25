@@ -1,73 +1,119 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="200" alt="Nest Logo" /></a>
-</p>
+# Budget API
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+API REST de gestion de budget personnel, construite avec **NestJS** et **TypeORM**. Elle gère les enveloppes budgétaires, les dépenses, les revenus, les transactions et la numérisation de tickets de caisse par OCR.
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://coveralls.io/github/nestjs/nest?branch=master" target="_blank"><img src="https://coveralls.io/repos/github/nestjs/nest/badge.svg?branch=master#9" alt="Coverage" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+## Fonctionnalités
 
-## Description
+- **Enveloppes budgétaires** — création et suivi de budgets mensuels par catégorie (logement, courses, loisirs…)
+- **Dépenses** — enregistrement et consultation des dépenses avec génération de rapports PDF
+- **Revenus** — suivi des revenus par utilisateur
+- **Transactions** — historique complet des mouvements financiers
+- **Tickets de caisse OCR** — upload d'une photo de ticket, extraction automatique du montant, de la date, du marchand et des articles via Tesseract.js
+- **Catégories** — gestion des catégories avec icônes personnalisées
+- **Profil utilisateur** — gestion du compte et des préférences
+- **Authentification JWT** — sécurisation de toutes les routes avec tokens JWT
+- **Google OAuth** — connexion via compte Google
+- **Administration** — tableau de bord admin avec gestion des utilisateurs
+- **Export Excel** — export des données budgétaires au format Excel
+- **Swagger** — documentation interactive de l'API (environnement de développement)
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+## Stack technique
+
+| Technologie | Rôle |
+|---|---|
+| NestJS 11 | Framework principal |
+| TypeORM | ORM base de données |
+| MySQL 8 | Base de données |
+| JWT | Authentification |
+| Tesseract.js | OCR pour les tickets |
+| Sharp | Traitement d'images |
+| PDFKit | Génération de PDF |
+| Multer | Upload de fichiers |
+| Swagger | Documentation API |
+| Docker | Containerisation |
+
+## Prérequis
+
+- Node.js >= 18
+- MySQL 8
+- npm
 
 ## Installation
 
 ```bash
-$ npm install
+npm install
 ```
 
-## Running the app
+## Configuration
+
+Créer un fichier `.env` à la racine :
+
+```env
+PORT=3010
+NODE_ENV=development
+
+# Base de données
+DB_HOST=localhost
+DB_PORT=3306
+DB_USER=nestuser
+DB_PASSWORD=nestpassword
+DB_NAME=crud_nest
+
+# JWT
+secret=votre_secret_jwt
+
+# CORS
+CORS_ORIGIN=http://localhost:5173
+```
+
+## Lancement
 
 ```bash
-# development
-$ npm run start
+# Développement avec rechargement automatique
+npm run start:dev
 
-# watch mode
-$ npm run start:dev
-
-# production mode
-$ npm run start:prod
+# Production
+npm run start:prod
 ```
 
-## Test
+L'API est disponible sur `http://localhost:3010`.
+La documentation Swagger est accessible sur `http://localhost:3010/api` (hors production).
+
+## Docker
 
 ```bash
-# unit tests
-$ npm run test
-
-# e2e tests
-$ npm run test:e2e
-
-# test coverage
-$ npm run test:cov
+# Lancer l'API et la base de données
+docker-compose up -d
 ```
 
-## Support
+## Tests
 
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
+```bash
+# Tests unitaires
+npm run test
 
-## Stay in touch
+# Tests avec couverture
+npm run test:cov
 
-- Author - [Kamil Myśliwiec](https://kamilmysliwiec.com)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
+# Tests e2e
+npm run test:e2e
+```
 
-## License
+## Modules
 
-Nest is [MIT licensed](LICENSE).
+| Module | Endpoint | Description |
+|---|---|---|
+| Auth | `/connection` | Inscription, connexion JWT, Google OAuth |
+| Envelopes | `/envelopes` | Gestion des enveloppes budgétaires |
+| Spend | `/spend` | Dépenses, export PDF |
+| Revenue | `/revenue` | Revenus |
+| Transactions | `/transactions` | Historique des transactions |
+| Ticket | `/ticket` | Upload et OCR de tickets de caisse |
+| Categorie | `/categorie` | Catégories de budget |
+| Profile | `/profile` | Profil utilisateur |
+| Admin | `/admin` | Administration |
+| Todos | `/todos` | Tâches associées au budget |
+
+## Auteur
+
+**lion92** — [krisscode.fr](https://krisscode.fr)
