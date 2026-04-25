@@ -44,28 +44,6 @@ API REST de gestion de budget personnel, construite avec **NestJS** et **TypeORM
 npm install
 ```
 
-## Configuration
-
-Créer un fichier `.env` à la racine :
-
-```env
-PORT=3010
-NODE_ENV=development
-
-# Base de données
-DB_HOST=localhost
-DB_PORT=3306
-DB_USER=nestuser
-DB_PASSWORD=REMOVED_FROM_HISTORY
-DB_NAME=crud_nest
-
-# JWT
-secret=votre_secret_jwt
-
-# CORS
-CORS_ORIGIN=http://localhost:5173
-```
-
 ## Lancement
 
 ```bash
