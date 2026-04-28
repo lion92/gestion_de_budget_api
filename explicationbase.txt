@@ -1,0 +1,90 @@
+Voici l'explication textuelle de toutes les relations :
+
+  ---
+  Relations de la base de données crud_nest
+
+  ---
+  user — Le centre de tout
+
+  L'utilisateur est la table principale. Toutes les autres données lui appartiennent. Quand un utilisateur est supprimé, ses données
+  associées sont supprimées automatiquement (CASCADE).
+
+  ---
+  user → revenue (1:N)
+
+  Un utilisateur peut avoir plusieurs revenus (salaire, primes, etc.). Chaque revenu appartient à un seul utilisateur. Si l'utilisateur est
+  supprimé, tous ses revenus sont supprimés.
+
+  ---
+  user → envelope (1:N)
+
+  Un utilisateur peut créer plusieurs enveloppes budgétaires (ex : "Courses", "Loyer"). Chaque enveloppe est définie pour un mois et une
+  année donnés.
+
+  envelope → transaction (1:N)
+
+  Une enveloppe contient plusieurs transactions (débits ou crédits). Si l'enveloppe est supprimée, toutes ses transactions sont supprimées.
+
+  ---
+  user → categorie (1:N)
+
+  Un utilisateur peut créer plusieurs catégories de dépenses (ex : "Alimentation", "Transport"). Chaque catégorie a un budget mensuel alloué
+   et une couleur.
+
+  categorie → category_image (1:1)
+
+  Chaque catégorie possède une seule icône. C'est une relation exclusive : une image correspond à une et une seule catégorie.
+
+  ---
+  user → action (1:N)
+
+  Un utilisateur enregistre plusieurs dépenses. Chaque dépense est rattachée à une catégorie et peut optionnellement être liée à un ticket
+  de caisse.
+
+  action → categorie (N:1)
+
+  Plusieurs dépenses peuvent appartenir à la même catégorie. Si la catégorie est supprimée, toutes ses dépenses sont supprimées.
+
+  action → tickets (N:1, optionnel)
+
+  Une dépense peut être liée à un ticket de caisse scanné (optionnel). Si le ticket est supprimé, le lien est simplement effacé (SET NULL) —
+   la dépense n'est pas supprimée.
+
+  ---
+  user → tickets (1:N)
+
+  Un utilisateur peut scanner plusieurs tickets de caisse. Chaque ticket contient le texte brut extrait par OCR, le montant total, le nom du
+   commerçant, la TVA et la liste des articles.
+
+  tickets → ticket_expense (via action, 1:N)
+
+  Un ticket peut être associé à plusieurs dépenses via la table de liaison ticket_expense. Cette table stocke également les données
+  structurées extraites du ticket.
+
+  ticket_expense → action (N:1, unique)
+
+  Chaque ligne de ticket_expense pointe vers une dépense unique (contrainte UNIQUE). Si la dépense est supprimée, la liaison est supprimée.
+
+  ---
+  user → todo (1:N)
+
+  Un utilisateur peut créer plusieurs tâches ou rappels personnels. Les tâches ne sont liées à aucune autre table — elles sont indépendantes
+   du budget.
+
+  ---
+  Résumé des suppressions en cascade
+
+  ┌─────────────────────────┬────────────────────────────────────────────────────────────────────┐
+  │         Action          │                            Conséquence                             │
+  ├─────────────────────────┼────────────────────────────────────────────────────────────────────┤
+  │ Supprimer un user       │ Supprime ses revenue, envelope, tickets, categorie, ticket_expense │
+  ├─────────────────────────┼────────────────────────────────────────────────────────────────────┤
+  │ Supprimer une envelope  │ Supprime ses transaction                                           │
+  ├─────────────────────────┼────────────────────────────────────────────────────────────────────┤
+  │ Supprimer une categorie │ Supprime ses action (et donc leurs ticket_expense)                 │
+  ├─────────────────────────┼────────────────────────────────────────────────────────────────────┤
+  │ Supprimer une action    │ Supprime ses ticket_expense                                        │
+  ├─────────────────────────┼────────────────────────────────────────────────────────────────────┤
+  │ Supprimer un ticket     │ Met ticketId à NULL dans action (la dépense reste)                 │
+  └─────────────────────────┴────────────────────────────────────────────────────────────────────┘
+
