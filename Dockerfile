@@ -6,19 +6,18 @@ WORKDIR /app
 
 # Copy package files
 COPY package*.json ./
-COPY yarn.lock ./
 
 # Install dependencies
-RUN yarn install --frozen-lockfile
+RUN npm install
 
 # Copy source code
 COPY . .
 
 # Build the application
-RUN yarn build
+RUN npm run build
 
 # Expose port (will be configurable via docker-compose)
 EXPOSE ${PORT:-3010}
 
 # Start the application
-CMD ["yarn", "start:prod"]
+CMD ["npm", "run", "start:prod"]
