@@ -4,7 +4,7 @@ services:
   nest-app:
     build: .
     ports:
-      - "${PORT:-3010}:3010"
+      - "127.0.0.1:${PORT:-3010}:3010"
     env_file:
       - .env
     environment:
@@ -18,12 +18,12 @@ services:
   mysql:
     image: mysql:8.0
     environment:
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-REMOVED_FROM_HISTORY}
-      MYSQL_DATABASE: ${MYSQL_DATABASE:-crud_nest}
-      MYSQL_USER: ${MYSQL_USER:-nestuser}
-      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-REMOVED_FROM_HISTORY}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
     ports:
-      - "${MYSQL_PORT:-3306}:3306"
+      - "127.0.0.1:${MYSQL_PORT:-3306}:3306"
     volumes:
       - mysql_data:/var/lib/mysql
     restart: unless-stopped
