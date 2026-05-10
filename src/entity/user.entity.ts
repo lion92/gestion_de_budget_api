@@ -51,4 +51,10 @@ export class User {
 
   @Column({ nullable: true })
   address?: string;
+
+  @Column({ type: 'datetime', nullable: true })
+  lastLoginAt?: Date;
+
+  @Column({ default: 0 })
+  loginCount: number;
 }

@@ -160,6 +160,12 @@ export class ConnectionService {
         attempt.count = 0;
         attempt.lockedUntil = null;
 
+        // Enregistrer la date de dernière connexion
+        await this.userRepository.update(userFind.id, {
+          lastLoginAt: new Date(),
+          loginCount: (userFind.loginCount || 0) + 1,
+        });
+
         // Créer le cookie et retourner la réponse
         res.cookie('jwt', jwt, {
           httpOnly: true,
@@ -336,6 +342,11 @@ export class ConnectionService {
         }),
       );
     }
+
+    await this.userRepository.update(user.id, {
+      lastLoginAt: new Date(),
+      loginCount: (user.loginCount || 0) + 1,
+    });
 
     const jwt = await this.jwtService.signAsync(
       { id: user.id },

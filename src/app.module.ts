@@ -15,6 +15,7 @@ import { TransactionsModule } from './transactions/transaction/transactions.modu
 import { EnvelopesModule } from './envelopes/envelopes.module';
 import { TicketModule } from './ticket/ticket.module'; // ✅ AJOUT ICI
 import { CategoryImagesModule } from './category-images/category-images.module';
+import { AdminModule } from './admin/admin.module';
 
 dotenv.config();
 
@@ -58,6 +59,7 @@ dotenv.config();
     TransactionsModule,
     EnvelopesModule,
     CategoryImagesModule,
+    AdminModule,
   ],
   controllers: [AppController],
   providers: [AppService],
