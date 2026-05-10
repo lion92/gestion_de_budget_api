@@ -12,6 +12,11 @@ export class AdminController {
     private userRepository: Repository<User>,
   ) {}
 
+  @Get('me')
+  me() {
+    return { isAdmin: true };
+  }
+
   @Get('users')
   async getAllUsers() {
     const users = await this.userRepository.find({
